@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@youli/shared": ["packages/shared/src"],
+      "@youli/orchestrator": ["packages/orchestrator/src"],
+      "@youli/memory": ["packages/memory/src"],
+      "@youli/integrations": ["packages/integrations/src"]
+    }
+  }
+}

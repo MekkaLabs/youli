@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f5f6f8;
+}
+
+body {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(16, 185, 129, 0.14), transparent 30%),
+    radial-gradient(circle at 100% 100%, rgba(56, 189, 248, 0.12), transparent 28%),
+    var(--bg);
+}
+
+.glass {
+  @apply backdrop-blur-xl bg-white/80 border border-white/60 shadow-sm;
+}
+
+.metric {
+  @apply rounded-2xl p-4 bg-gradient-to-br from-slate-950 to-slate-800 text-white;
+}
+
+.metric-green {
+  @apply rounded-2xl p-4 bg-gradient-to-br from-emerald-800 to-emerald-600 text-white;
+}
+
+.metric-blue {
+  @apply rounded-2xl p-4 bg-gradient-to-br from-sky-800 to-blue-600 text-white;
+}
+
+.metric-rose {
+  @apply rounded-2xl p-4 bg-gradient-to-br from-rose-800 to-rose-600 text-white;
+}

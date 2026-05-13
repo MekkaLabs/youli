@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "YOULI",
+    "slug": "youli",
+    "scheme": "youli",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "platforms": ["ios", "android"],
+    "experiments": { "typedRoutes": true }
+  }
+}

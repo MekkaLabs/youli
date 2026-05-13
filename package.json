@@ -1,0 +1,26 @@
+{
+  "name": "youli",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w @youli/api",
+    "dev:mobile": "npm run start -w @youli/mobile",
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:mobile\"",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "setup:aios": "node scripts/setup-aios.mjs",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/react": "^19.1.5",
+    "@types/react-native": "^0.73.0",
+    "concurrently": "^9.1.2",
+    "typescript": "^5.8.3"
+  }
+}

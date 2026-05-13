@@ -1,0 +1,182 @@
+{
+  "profile": {
+    "id": "u1",
+    "name": "Gustavo Vicente",
+    "email": "gustav0.v1c3nt3@gmail.com",
+    "role": "Admin Master",
+    "age": 33,
+    "avatarUrl": "/profile/gustavo-vicente.jpg",
+    "provisionalPassword": "teste123",
+    "timezone": "America/Sao_Paulo",
+    "objectives": [
+      "Ganhar R$10.000 com internet",
+      "Manter rotina de alta performance"
+    ],
+    "routine": [
+      "Treino diário",
+      "Programação",
+      "Estudo",
+      "Fechamento do dia 00:00"
+    ],
+    "preferences": [
+      "Sistema operacional pessoal",
+      "Fluxo por áreas",
+      "Comandos em linguagem natural"
+    ],
+    "projects": [
+      "YOULI MVP"
+    ],
+    "lifeAreas": [
+      "Negócios Digitais",
+      "Saúde",
+      "Execução",
+      "Finanças"
+    ],
+    "behaviorPatterns": [
+      "Alta energia após treino",
+      "Executa melhor com tarefas claras e priorizadas"
+    ],
+    "energyProfile": "high",
+    "persistentContext": [
+      "Prefere visão por sistema, não chatbot",
+      "Quer tudo integrado em um único fluxo"
+    ],
+    "integrations": {
+      "strava": "connected",
+      "openFinance": "connected",
+      "calendar": "connected",
+      "nativeCalendar": "connected"
+    }
+  },
+  "connections": [
+    {
+      "id": "conn-strava",
+      "provider": "strava",
+      "status": "connected",
+      "syncedAt": "2026-05-13T21:34:10.213Z"
+    },
+    {
+      "id": "conn-of",
+      "provider": "open_finance",
+      "status": "connected",
+      "syncedAt": "2026-05-13T21:34:10.214Z"
+    },
+    {
+      "id": "conn-gcal",
+      "provider": "google_calendar",
+      "status": "connected",
+      "syncedAt": "2026-05-13T21:34:10.214Z"
+    },
+    {
+      "id": "conn-native",
+      "provider": "native_calendar",
+      "status": "connected",
+      "syncedAt": "2026-05-13T21:34:10.214Z"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "3a9c1d42-bb4e-445d-b84c-e4bc0a889e66",
+      "title": "Almoçar com os pais.",
+      "status": "todo",
+      "priority": 4,
+      "nextStep": "Executar o primeiro passo de 10 minutos."
+    },
+    {
+      "id": "t1",
+      "title": "Programar novos aplicativos",
+      "status": "todo",
+      "priority": 5,
+      "nextStep": "Definir escopo e iniciar arquitetura base."
+    },
+    {
+      "id": "t2",
+      "title": "Ir à Vivo resolver problema de celular",
+      "status": "todo",
+      "priority": 4,
+      "nextStep": "Levar documento e protocolo anterior."
+    }
+  ],
+  "goals": [
+    {
+      "id": "g1",
+      "objectiveId": "o1",
+      "title": "Conseguir ganhar 10.000 com internet",
+      "progress": 15
+    }
+  ],
+  "habits": [
+    {
+      "id": "h1",
+      "title": "Treinar todos os dias (triathlon, jiu e muaythai)",
+      "frequency": "daily",
+      "streak": 3
+    },
+    {
+      "id": "h2",
+      "title": "Estudar",
+      "frequency": "daily",
+      "streak": 5
+    },
+    {
+      "id": "h3",
+      "title": "Dormir 00:00",
+      "frequency": "daily",
+      "streak": 2
+    }
+  ],
+  "insights": [
+    {
+      "id": "i1",
+      "createdAt": "2026-05-13T21:34:10.214Z",
+      "summary": "Seu foco sobe quando treino e estudo são executados no mesmo dia.",
+      "actions": [
+        "Manter janela fixa de treino",
+        "Reservar 60-90min para estudo técnico"
+      ],
+      "energy": "high"
+    }
+  ],
+  "memory": [],
+  "calendar": [
+    {
+      "id": "cal-1",
+      "source": "native",
+      "title": "Bloco de Programação",
+      "startsAt": "2026-05-13T21:34:10.214Z",
+      "endsAt": "2026-05-13T23:04:10.214Z"
+    },
+    {
+      "id": "cal-2",
+      "source": "native",
+      "title": "Treino (triathlon / luta)",
+      "startsAt": "2026-05-14T00:34:10.214Z",
+      "endsAt": "2026-05-14T01:34:10.214Z"
+    },
+    {
+      "id": "cal-3",
+      "source": "native",
+      "title": "Vivo - resolver celular",
+      "startsAt": "2026-05-14T03:34:10.214Z",
+      "endsAt": "2026-05-14T04:34:10.214Z"
+    }
+  ],
+  "fitness": [
+    {
+      "id": "fit-1",
+      "source": "strava",
+      "type": "Triathlon",
+      "durationMin": 70,
+      "intensity": "high",
+      "startedAt": "2026-05-12T21:34:10.214Z"
+    },
+    {
+      "id": "fit-2",
+      "source": "strava",
+      "type": "Jiu-Jitsu",
+      "durationMin": 50,
+      "intensity": "high",
+      "startedAt": "2026-05-11T21:34:10.214Z"
+    }
+  ]
+}
