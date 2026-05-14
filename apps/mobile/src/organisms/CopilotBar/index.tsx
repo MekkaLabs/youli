@@ -19,6 +19,7 @@ import {
 import Animated, { FadeIn, FadeInDown, SlideInRight } from 'react-native-reanimated';
 import { tokens } from '../../theme/tokens';
 import { AgentInsightCard } from '../../molecules/AgentInsightCard';
+import { VoiceInput, VoiceActionResult } from '../../molecules/VoiceInput';
 
 interface Message {
   id: string;
@@ -290,6 +291,28 @@ export function CopilotBar({
 
       {/* Input */}
       <View style={styles.inputRow}>
+        {/* Botão de voz */}
+        <VoiceInput
+          onResult={(text) => setInput(text)}
+          onAction={(result: VoiceActionResult) => {
+            // Adiciona transcrição + resposta do agente no histórico do chat
+            if (result.success) {
+              const userMsg: Message = {
+                id: (Date.now() - 1).toString(),
+                role: 'user',
+                text: `🎤 ${result.intent?.rawText ?? ''}`,
+              };
+              const assistantMsg: Message = {
+                id: Date.now().toString(),
+                role: 'assistant',
+                text: result.message,
+              };
+              setMessages((prev: Message[]) => [...prev, userMsg, assistantMsg]);
+            }
+          }}
+          profileId="demo"
+        />
+
         <TextInput
           style={styles.input}
           placeholder={`Pergunte para ${orchestratorName}...`}

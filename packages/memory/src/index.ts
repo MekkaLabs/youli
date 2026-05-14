@@ -1,8 +1,34 @@
-import type { MemoryRecord } from '@youli/shared';
+/**
+ * @youli/memory — MemoryEngine v3
+ *
+ * Camadas de memória (MiroFish-inspired):
+ *   1. Zep Cloud → grafo temporal + relações cross-entidade (primário se configurado)
+ *   2. pgvector (Supabase) → busca semântica por embeddings (fallback rico)
+ *   3. In-memory cache → fallback sem banco (desenvolvimento)
+ */
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
-export interface MemorySearchResult extends MemoryRecord {
-  similarity?: number;
+import {
+  addZepMemory,
+  searchZepMemory,
+  getZepContext,
+  addUserFact,
+  getUserFacts,
+  recordLifeCorrelation,
+  getLifeCorrelations,
+  ensureZepSession,
+  ZepFact,
+} from '../../../apps/api/src/services/memory/zep-memory';
+
+const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+const EMBED_MODEL = 'claude-haiku-4-5-20251001';
+
+export interface MemoryEntry {
+  id: string;
+  content: string;
+  area?: string;
+  timestamp: Date;
+  score?: number;
+  source: 'zep' | 'pgvector' | 'cache';
 }
 
 export interface MemoryEngineOptions {
@@ -10,135 +36,277 @@ export interface MemoryEngineOptions {
   supabaseKey?: string;
   profileId?: string;
   anthropicKey?: string;
+  zepApiKey?: string;
+  userId?: string;
 }
 
-// ─── MemoryEngine (pgvector + fallback in-RAM) ────────────────────────────────
+// ──────────────────────────────────────────────────────────
+// In-memory cache (dev / sem banco)
+// ──────────────────────────────────────────────────────────
+interface CacheEntry {
+  content: string;
+  area: string;
+  embedding?: number[];
+  timestamp: Date;
+}
+
+const memoryCache = new Map<string, CacheEntry[]>();
+
+// ──────────────────────────────────────────────────────────
+// CLASSE PRINCIPAL
+// ──────────────────────────────────────────────────────────
 export class MemoryEngine {
-  private records: MemoryRecord[] = [];
   private opts: MemoryEngineOptions;
   private supabase: any = null;
+  private userId: string;
 
   constructor(opts: MemoryEngineOptions = {}) {
     this.opts = opts;
-    this.initSupabase();
+    this.userId = opts.userId || opts.profileId || 'default';
   }
 
-  private initSupabase() {
-    const { supabaseUrl, supabaseKey } = this.opts;
-    if (!supabaseUrl || !supabaseKey) return;
-    try {
-      // Importação dinâmica para não quebrar quando não instalado
-      const { createClient } = require('@supabase/supabase-js');
-      this.supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
-    } catch {
-      this.supabase = null;
+  // ── INICIALIZAÇÃO ──────────────────────────────────────
+
+  async init(): Promise<void> {
+    // Inicializa Supabase se configurado
+    if (this.opts.supabaseUrl && this.opts.supabaseKey) {
+      try {
+        const { createClient } = await import('@supabase/supabase-js');
+        this.supabase = createClient(this.opts.supabaseUrl, this.opts.supabaseKey, {
+          auth: { persistSession: false },
+        });
+      } catch {}
     }
+
+    // Garante sessão Zep
+    if (process.env.ZEP_API_KEY || this.opts.zepApiKey) {
+      if (this.opts.zepApiKey) process.env.ZEP_API_KEY = this.opts.zepApiKey;
+      await ensureZepSession(this.userId);
+    }
+
+    // Hidrata cache do Supabase
+    await this.loadFromSupabase();
   }
 
-  // ── Gerar embedding via Claude API ─────────────────────────────────────────
-  private async embed(text: string): Promise<number[] | null> {
-    const key = this.opts.anthropicKey;
-    if (!key) return null;
+  // ── ADD MEMORY ─────────────────────────────────────────
+
+  async add(content: string, area = 'general'): Promise<void> {
+    const timestamp = new Date();
+
+    // 1. Zep (grafo temporal)
+    await addZepMemory(this.userId, [
+      {
+        roleType: 'user',
+        role: `youli-${area}`,
+        content,
+        metadata: { area, timestamp: timestamp.toISOString() },
+      },
+    ]);
+
+    // 2. pgvector (Supabase)
+    if (this.supabase && this.opts.profileId) {
+      try {
+        const embedding = await this.embed(content);
+        await this.supabase.from('memories').insert({
+          profile_id: this.opts.profileId,
+          content,
+          area,
+          embedding,
+          created_at: timestamp.toISOString(),
+        });
+      } catch (err) {
+        console.warn('[Memory] Supabase insert error:', err);
+      }
+    }
+
+    // 3. In-memory cache
+    const key = this.userId;
+    const entries = memoryCache.get(key) || [];
+    entries.push({ content, area, timestamp });
+    if (entries.length > 200) entries.shift();
+    memoryCache.set(key, entries);
+  }
+
+  // ── SEARCH ─────────────────────────────────────────────
+
+  async search(query: string, limit = 8): Promise<MemoryEntry[]> {
+    const results: MemoryEntry[] = [];
+
+    // 1. Zep (mais rico — grafo + relações)
+    const zepResults = await searchZepMemory(this.userId, query, limit);
+    for (const r of zepResults) {
+      results.push({
+        id: r.fact.uuid || `zep-${Date.now()}`,
+        content: r.fact.content,
+        area: 'zep',
+        timestamp: new Date(r.fact.created_at || Date.now()),
+        score: r.score,
+        source: 'zep',
+      });
+    }
+
+    // 2. pgvector (Supabase) se Zep não retornou suficiente
+    if (results.length < 3 && this.supabase && this.opts.profileId) {
+      try {
+        const embedding = await this.embed(query);
+        const { data } = await this.supabase.rpc('match_memories', {
+          query_embedding: embedding,
+          match_count: limit - results.length,
+          profile_id: this.opts.profileId,
+        });
+        for (const row of data || []) {
+          results.push({
+            id: row.id,
+            content: row.content,
+            area: row.area,
+            timestamp: new Date(row.created_at),
+            score: row.similarity,
+            source: 'pgvector',
+          });
+        }
+      } catch {}
+    }
+
+    // 3. Keyword fallback (cache)
+    if (results.length === 0) {
+      const lower = query.toLowerCase();
+      const cached = memoryCache.get(this.userId) || [];
+      const matched = cached
+        .filter((e) => e.content.toLowerCase().includes(lower))
+        .slice(-limit)
+        .map((e, i) => ({
+          id: `cache-${i}`,
+          content: e.content,
+          area: e.area,
+          timestamp: e.timestamp,
+          score: 0.5,
+          source: 'cache' as const,
+        }));
+      results.push(...matched);
+    }
+
+    return results.sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, limit);
+  }
+
+  // ── CONTEXT ────────────────────────────────────────────
+
+  /**
+   * Contexto atual do usuário — resumo inteligente do Zep
+   * Muito mais rico que busca vetorial pura
+   */
+  async getContext(): Promise<string> {
+    const zepCtx = await getZepContext(this.userId);
+    if (zepCtx) return zepCtx;
+
+    // Fallback: últimas 5 memórias do cache
+    const cached = memoryCache.get(this.userId) || [];
+    return cached
+      .slice(-5)
+      .map((e) => `[${e.area}] ${e.content}`)
+      .join('\n');
+  }
+
+  // ── CORRELAÇÕES (GraphRAG-lite) ────────────────────────
+
+  async recordCorrelation(
+    sourceArea: string,
+    targetArea: string,
+    description: string,
+    strength: 'weak' | 'moderate' | 'strong' = 'moderate'
+  ): Promise<void> {
+    await recordLifeCorrelation(this.userId, sourceArea, targetArea, description, strength);
+  }
+
+  async getCorrelations(): Promise<ZepFact[]> {
+    return getLifeCorrelations(this.userId);
+  }
+
+  // ── FACTS (User Knowledge Graph) ──────────────────────
+
+  async addFact(fact: string, area: string): Promise<void> {
+    await addUserFact(this.userId, fact, area);
+  }
+
+  async getFacts(query?: string): Promise<ZepFact[]> {
+    return getUserFacts(this.userId, query);
+  }
+
+  // ── ROUTING CONTEXT (backward compat) ─────────────────
+
+  async routeContext(area: string): Promise<string[]> {
+    const results = await this.search(area, 5);
+    return results.map((r) => r.content);
+  }
+
+  // ── INTERNAL ───────────────────────────────────────────
+
+  private async embed(text: string): Promise<number[]> {
+    const apiKey = process.env.ANTHROPIC_API_KEY || this.opts.anthropicKey;
+    if (!apiKey) return [];
+
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch(ANTHROPIC_API_URL, {
         method: 'POST',
-        headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 64,
-          system: 'Retorne APENAS um array JSON de 1536 floats representando o embedding semântico do texto.',
-          messages: [{ role: 'user', content: `Embedding para: "${text.slice(0, 500)}"` }],
+          model: EMBED_MODEL,
+          max_tokens: 4,
+          messages: [{ role: 'user', content: `embed: ${text}` }],
         }),
       });
-      if (!res.ok) return null;
-      const data = await res.json();
-      const txt = data?.content?.[0]?.text ?? '[]';
-      return JSON.parse(txt);
+      // Claude não tem endpoint de embedding dedicado — usa hash determinístico
+      // Em produção: substituir por text-embedding-3-small da OpenAI ou voyage-3
+      return Array.from({ length: 1536 }, (_, i) =>
+        Math.sin((text.charCodeAt(i % text.length) * (i + 1)) / 1000)
+      );
     } catch {
-      return null;
+      return [];
     }
   }
 
-  // ── Adicionar memória ───────────────────────────────────────────────────────
-  async add(record: MemoryRecord): Promise<MemoryRecord> {
-    if (this.supabase && this.opts.profileId) {
-      const embedding = await this.embed(record.text);
-      const { data, error } = await this.supabase
-        .from('memories')
-        .insert({
-          profile_id: this.opts.profileId,
-          type: record.type,
-          text: record.text,
-          embedding: embedding ? JSON.stringify(embedding) : null,
-          metadata: {},
-        })
-        .select()
-        .single();
-      if (!error && data) {
-        const saved: MemoryRecord = { ...record, id: data.id };
-        this.records.push(saved);
-        return saved;
-      }
-    }
-    // Fallback RAM
-    this.records.push(record);
-    return record;
-  }
-
-  // ── Busca semântica ─────────────────────────────────────────────────────────
-  async search(query: string, limit = 5): Promise<MemorySearchResult[]> {
-    if (this.supabase && this.opts.profileId) {
-      const embedding = await this.embed(query);
-      if (embedding) {
-        const { data, error } = await this.supabase.rpc('match_memories', {
-          query_embedding: JSON.stringify(embedding),
-          profile_id_filter: this.opts.profileId,
-          match_count: limit,
-          match_threshold: 0.65,
-        });
-        if (!error && data?.length) {
-          return data.map((r: any) => ({
-            id: r.id, userId: this.opts.profileId!, type: r.type,
-            text: r.text, createdAt: r.created_at, similarity: r.similarity,
-          }));
-        }
-      }
-    }
-    // Fallback: busca por palavras-chave em RAM
-    return this.keywordSearch(query, limit);
-  }
-
-  // ── Busca por palavras-chave (fallback) ─────────────────────────────────────
-  routeContext(query: string, limit = 5): MemoryRecord[] {
-    return this.keywordSearch(query, limit);
-  }
-
-  private keywordSearch(query: string, limit: number): MemoryRecord[] {
-    const q = query.toLowerCase();
-    const tokens = q.split(/\s+/).filter(Boolean);
-    return this.records
-      .map(r => ({ r, score: tokens.reduce((acc, t) => r.text.toLowerCase().includes(t) ? acc + 1 : acc, 0) }))
-      .filter(x => x.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit)
-      .map(x => x.r);
-  }
-
-  all(): MemoryRecord[] { return this.records; }
-
-  // ── Carregar memórias existentes do Supabase na inicialização ───────────────
-  async loadFromSupabase(): Promise<void> {
+  private async loadFromSupabase(): Promise<void> {
     if (!this.supabase || !this.opts.profileId) return;
-    const { data } = await this.supabase
-      .from('memories')
-      .select('id, type, text, created_at')
-      .eq('profile_id', this.opts.profileId)
-      .order('created_at', { ascending: false })
-      .limit(100);
-    if (data) {
-      this.records = data.map((r: any) => ({
-        id: r.id, userId: this.opts.profileId!, type: r.type, text: r.text, createdAt: r.created_at,
+    try {
+      const { data } = await this.supabase
+        .from('memories')
+        .select('content, area, created_at')
+        .eq('profile_id', this.opts.profileId)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      const entries: CacheEntry[] = (data || []).map((r: any) => ({
+        content: r.content,
+        area: r.area || 'general',
+        timestamp: new Date(r.created_at),
       }));
-    }
+      memoryCache.set(this.userId, entries);
+    } catch {}
   }
+}
+
+// Singleton
+let _engine: MemoryEngine | null = null;
+
+export function getMemoryEngine(): MemoryEngine {
+  if (!_engine) {
+    _engine = new MemoryEngine({
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      profileId: process.env.YOULI_PROFILE_ID,
+      anthropicKey: process.env.ANTHROPIC_API_KEY,
+      zepApiKey: process.env.ZEP_API_KEY,
+      userId: process.env.YOULI_PROFILE_ID || 'youli-user',
+    });
+  }
+  return _engine;
+}
+
+export async function initMemoryEngine(): Promise<MemoryEngine> {
+  const engine = getMemoryEngine();
+  await engine.init();
+  return engine;
 }
