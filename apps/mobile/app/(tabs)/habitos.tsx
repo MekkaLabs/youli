@@ -4,6 +4,7 @@ import { FullScrollLayout } from '../../src/templates/FullScrollLayout';
 import { HabitDeck } from '../../src/organisms/HabitDeck';
 import { AgentBadge } from '../../src/atoms/AgentBadge';
 
+// v2: HabitDeck agora usa useHabits() internamente — sem props externas necessárias
 const ARISTOTELES = { name: 'Aristóteles', fullName: 'Aristóteles de Estagira', emoji: '🏛️', color: '#059669', domain: 'Hábitos & Caráter' };
 
 export default function HabitosScreen() {
