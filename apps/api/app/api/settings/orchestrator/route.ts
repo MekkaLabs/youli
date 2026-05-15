@@ -10,7 +10,8 @@ import { DEFAULT_ORCHESTRATOR } from '@/services/agents/agent-definitions';
 
 // Em produção, isso viria do Supabase profile
 // Por ora, usa variável de ambiente ou padrão
-function getCurrentConfig() {
+async function getCurrentConfig() {
+  const { AGENT_DEFINITIONS } = await import('@/services/agents/agent-definitions');
   return {
     name: process.env.ORCHESTRATOR_NAME || DEFAULT_ORCHESTRATOR.name,
     emoji: process.env.ORCHESTRATOR_EMOJI || DEFAULT_ORCHESTRATOR.emoji,
@@ -26,9 +27,7 @@ function getCurrentConfig() {
       { name: 'Echo', emoji: '🎯', description: 'Foco e clareza absoluta' },
       { name: 'Sage', emoji: '📿', description: 'Sabedoria e equilíbrio' },
     ],
-    agents: Object.entries(
-      (await import('@/services/agents/agent-definitions')).AGENT_DEFINITIONS
-    ).map(([area, agent]) => ({
+    agents: Object.entries(AGENT_DEFINITIONS).map(([area, agent]) => ({
       area,
       name: agent.name,
       fullName: agent.fullName,

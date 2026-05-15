@@ -20,13 +20,13 @@ const endpointMap: Record<SectionKey, string> = {
   overview: '/api/me/summary',
   tarefas: '/api/tasks/route',
   metas: '/api/goals/route',
-  habitos: '/api/habits/route',
-  calendario: '/api/calendar/route',
+  habitos: '/api/habits',
+  calendario: '/api/calendar',
   insights: '/api/insights/route',
   fitness: '/api/fitness/route',
   financeiro: '/api/open-finance/summary',
   perfil: '/api/profile/route',
-  memoria: '/api/memory/route',
+  memoria: '/api/memory',
   orquestracao: '/api/orchestrator/route'
 };
 
@@ -101,6 +101,13 @@ export default function SectionPage() {
 
   useEffect(() => {
     load().catch(() => setData(null));
+  }, [section]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      load().catch(() => null);
+    }, 8000);
+    return () => clearInterval(timer);
   }, [section]);
 
   async function runAssistant() {

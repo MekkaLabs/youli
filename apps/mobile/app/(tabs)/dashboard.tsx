@@ -8,8 +8,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FullScrollLayout } from '../../src/templates/FullScrollLayout';
 import { DashboardHero } from '../../src/organisms/DashboardHero';
-import { FinanceGrid } from '../../src/organisms/FinanceGrid';
 import { AgentBadge } from '../../src/atoms/AgentBadge';
+import { DailyDigest } from '../../src/organisms/DailyDigest';
+import { NotificationBell, NotificationCenter } from '../../src/organisms/NotificationCenter';
+import { CrossAreaInsights } from '../../src/organisms/CrossAreaInsights';
+import { useSmartNotifications } from '../../src/hooks/useSmartNotifications';
+import { DailyCheckIn, useDailyCheckIn } from '../../src/organisms/DailyCheckIn';
+import { GlobalSearch, SearchTrigger } from '../../src/organisms/GlobalSearch';
+import { ShareProgressButton } from '../../src/organisms/ShareCard';
 import { tokens } from '../../src/theme/tokens';
 
 const LEONARDO = {
@@ -24,9 +30,12 @@ const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
-  const [refreshing, setRefreshing] = useState(false);
   const [dashData, setDashData] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const { unreadCount } = useSmartNotifications();
+  const { show: showCheckIn, dismiss: dismissCheckIn } = useDailyCheckIn();
+  const [showSearch, setShowSearch] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -42,28 +51,43 @@ export default function DashboardScreen() {
   React.useEffect(() => { load(); }, []);
 
   const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
     await load();
-    setRefreshing(false);
   }, [load]);
 
   return (
-    <FullScrollLayout
-      title="Dashboard"
-      subtitle="Visão geral do seu universo"
-      paddingBottom={insets.bottom + 90}
-      refreshing={refreshing}
-      onRefresh={handleRefresh}
-      rightAction={
-        <AgentBadge
-          {...LEONARDO}
-          compact
-          onPress={() => {/* abre copilot no contexto de dashboard */}}
-        />
-      }
-    >
-      <DashboardHero data={dashData} />
-      <FinanceGrid transactions={transactions} />
-    </FullScrollLayout>
+    <>
+      {/* Daily Digest — abre automaticamente se ainda não foi exibido hoje */}
+      <DailyDigest autoOpen />
+
+      {/* Daily Check-in — 1x por dia entre 6h e 11h */}
+      <DailyCheckIn visible={showCheckIn} onClose={dismissCheckIn} />
+
+      {/* Busca global */}
+      <GlobalSearch visible={showSearch} onClose={() => setShowSearch(false)} />
+
+      {/* Central de Notificações */}
+      <NotificationCenter
+        visible={showNotifications}
+        onClose={() => setShowNotifications(false)}
+      />
+
+      <FullScrollLayout
+        title="Dashboard"
+        subtitle="Visão geral do seu universo"
+        paddingBottom={insets.bottom + 90}
+        onRefresh={handleRefresh}
+        rightAction={
+          <NotificationBell
+            unreadCount={unreadCount}
+            onPress={() => setShowNotifications(true)}
+          />
+        }
+      >
+        <SearchTrigger onPress={() => setShowSearch(true)} />
+        <DashboardHero data={dashData} onOpenCopilot={() => {}} />
+        <CrossAreaInsights />
+        <ShareProgressButton compact />
+      </FullScrollLayout>
+    </>
   );
 }

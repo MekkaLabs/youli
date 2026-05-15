@@ -1,9 +1,27 @@
 import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '../../../../src/repositories/local-db';
 
+const DEFAULT_MODULES = [
+  'overview',
+  'tarefas',
+  'metas',
+  'habitos',
+  'calendario',
+  'insights',
+  'fitness',
+  'financeiro',
+  'perfil',
+  'memoria',
+  'orquestracao'
+];
+
 export async function GET() {
   const db = readDb();
-  return NextResponse.json({ activeModules: db.profile.activeModules || [] });
+  const activeModules =
+    Array.isArray(db.profile.activeModules) && db.profile.activeModules.length > 0
+      ? db.profile.activeModules
+      : DEFAULT_MODULES;
+  return NextResponse.json({ activeModules });
 }
 
 export async function POST(req: Request) {

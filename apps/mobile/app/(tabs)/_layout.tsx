@@ -1,57 +1,76 @@
 import React, { useState } from 'react';
 import { Modal, StyleSheet, View } from 'react-native';
-import { Tabs } from 'expo-router';
-import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
+import { Slot, useRouter, usePathname } from 'expo-router';
 import { BottomNav, type TabKey } from '../../src/organisms/BottomNav';
 import { CopilotBar } from '../../src/organisms/CopilotBar';
+import { useCopilotContext } from '../../src/hooks/useCopilotContext';
+import { useProfile } from '../../src/store';
 import { colors } from '../../src/theme/tokens';
 
-// Mapeamento tab -> rota expo-router
-const tabToHref: Record<TabKey, string> = {
-  dashboard: '/(tabs)/dashboard',
-  tarefas:   '/(tabs)/tarefas',
-  copilot:   '',          // abre modal
-  habitos:   '/(tabs)/habitos',
-  perfil:    '/(tabs)/perfil',
+const tabToHref: Record<string, string> = {
+  dashboard:  '/(tabs)/dashboard',
+  habitos:    '/(tabs)/habitos',
+  metas:      '/(tabs)/metas',
+  tarefas:    '/(tabs)/tarefas',
+  insights:   '/(tabs)/insights',
+  financeiro: '/(tabs)/financeiro',
+  calendario: '/(tabs)/calendario',
+  fitness:    '/(tabs)/fitness',
+  simular:    '/(tabs)/simular',
+  perfil:     '/(tabs)/perfil',
+  focus:      '/(tabs)/focus',
 };
+
+function getActiveTab(pathname: string): TabKey {
+  if (pathname.includes('habitos'))    return 'habitos';
+  if (pathname.includes('metas'))      return 'metas';
+  if (pathname.includes('tarefas'))    return 'tarefas';
+  if (pathname.includes('insights'))   return 'insights';
+  if (pathname.includes('financeiro')) return 'financeiro';
+  if (pathname.includes('calendario')) return 'calendario';
+  if (pathname.includes('fitness'))    return 'fitness';
+  if (pathname.includes('simular'))    return 'simular';
+  if (pathname.includes('perfil'))     return 'perfil';
+  if (pathname.includes('focus'))      return 'focus';
+  return 'dashboard';
+}
 
 export default function TabsLayout() {
   const [copilotOpen, setCopilotOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
+  const router = useRouter();
+  const pathname = usePathname();
+  const activeTab = getActiveTab(pathname);
+  const { profile } = useProfile();
+  const userContext = useCopilotContext();
 
   return (
-    <View style={{ flex: 1 }}>
-      {/* Expo Router Tabs (oculto visualmente — usamos nosso BottomNav) */}
-      <Tabs screenOptions={{ headerShown: false, tabBarStyle: { display: 'none' } }}>
-        <Tabs.Screen name="dashboard" />
-        <Tabs.Screen name="tarefas" />
-        <Tabs.Screen name="habitos" />
-        <Tabs.Screen name="metas" />
-        <Tabs.Screen name="insights" />
-        <Tabs.Screen name="perfil" />
-        <Tabs.Screen name="financeiro" />
-        <Tabs.Screen name="calendario" />
-        <Tabs.Screen name="fitness" />
-      </Tabs>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={{ flex: 1 }}>
+        <Slot />
+      </View>
 
-      {/* Custom Bottom Nav */}
       <View style={styles.navWrap}>
         <BottomNav
           active={activeTab}
           onPress={(tab) => {
             if (tab === 'copilot') { setCopilotOpen(true); return; }
-            setActiveTab(tab);
+            const href = tabToHref[tab];
+            if (href) router.replace(href as any);
           }}
         />
       </View>
 
-      {/* Copilot Modal */}
-      <Modal visible={copilotOpen} transparent animationType="none" onRequestClose={() => setCopilotOpen(false)}>
-        <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)} style={styles.overlay}>
-          <Animated.View entering={SlideInDown.springify()} exiting={SlideOutDown.springify()} style={styles.copilotSheet}>
-            <CopilotBar currentSection={activeTab} onClose={() => setCopilotOpen(false)} />
-          </Animated.View>
-        </Animated.View>
+      <Modal visible={copilotOpen} transparent animationType="slide" onRequestClose={() => setCopilotOpen(false)}>
+        <View style={styles.overlay}>
+          <View style={styles.copilotSheet}>
+            <CopilotBar
+              currentSection={activeTab}
+              onClose={() => setCopilotOpen(false)}
+              orchestratorName={profile.orchestratorName}
+              userContext={userContext}
+            />
+          </View>
+        </View>
       </Modal>
     </View>
   );

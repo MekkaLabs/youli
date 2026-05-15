@@ -1,0 +1,22 @@
+version: 1
+standards:
+  - id: architecture
+    file: architecture.md
+    description: Monorepo structure, versões, metro config, npm workspaces
+    tags: [monorepo, expo, nextjs, metro, dependencies]
+
+  - id: mobile-ui
+    file: mobile-ui.md
+    description: Atomic Design, design tokens, expo-router, Zustand, componentes mobile
+    tags: [mobile, ui, components, tokens, navigation, state]
+
+  - id: api-patterns
+    file: api-patterns.md
+    description: Next.js API routes, Supabase, Claude API, multi-agent squads
+    tags: [api, supabase, claude, ai, squads, backend]
+
+  - id: product-mission
+    file: product-mission.md
+    description: O que é o Youli, pilares, usuários, filosofia de produto
+    tags: [product, mission, context, vision]
+

@@ -215,6 +215,31 @@ export function useGoals() {
     });
   }, []);
 
+
+  const deleteGoal = useCallback((id: string) => {
+    setGoals(prev => {
+      const updated = prev.filter(g => g.id !== id);
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const pauseGoal = useCallback((id: string) => {
+    setGoals(prev => {
+      const updated = prev.map(g => g.id === id ? { ...g, status: 'paused' as GoalStatus } : g);
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const resumeGoal = useCallback((id: string) => {
+    setGoals(prev => {
+      const updated = prev.map(g => g.id === id ? { ...g, status: 'active' as GoalStatus } : g);
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
   // Stats
   const stats = {
     total: goals.length,
@@ -227,5 +252,5 @@ export function useGoals() {
     milestonesReached: goals.reduce((s, g) => s + g.milestones.filter(m => !!m.reachedAt).length, 0),
   };
 
-  return { goals, loading, stats, updateProgress, addGoal, goalStatus, progressPercent, daysUntil };
+  return { goals, loading, stats, updateProgress, addGoal, deleteGoal, pauseGoal, resumeGoal, goalStatus, progressPercent, daysUntil };
 }

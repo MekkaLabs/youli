@@ -244,6 +244,23 @@ export function useHabits() {
     });
   }, []);
 
+
+  const deleteHabit = useCallback((id: string) => {
+    setHabits(prev => {
+      const updated = prev.filter(h => h.id !== id);
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const editHabit = useCallback((id: string, patch: Partial<Pick<HabitData, 'title' | 'emoji' | 'color' | 'category' | 'frequency'>>) => {
+    setHabits(prev => {
+      const updated = prev.map(h => h.id === id ? { ...h, ...patch } : h);
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
   // Stats gerais
   const stats = {
     total: habits.length,

@@ -76,6 +76,20 @@
   ],
   "tasks": [
     {
+      "id": "b3455cc9-0a23-45b0-bc49-0de0ea901f5d",
+      "title": "Arrumar a casa",
+      "status": "todo",
+      "priority": 4,
+      "nextStep": "Executar o primeiro passo de 10 minutos."
+    },
+    {
+      "id": "6a5efbf0-a087-472e-91d7-08f32a9c509b",
+      "title": "Executar sprint de validação",
+      "status": "todo",
+      "priority": 5,
+      "nextStep": "Fechar 3 feedbacks reais hoje."
+    },
+    {
       "id": "3a9c1d42-bb4e-445d-b84c-e4bc0a889e66",
       "title": "Almoçar com os pais.",
       "status": "todo",
@@ -99,6 +113,12 @@
   ],
   "goals": [
     {
+      "id": "178e724d-e458-4627-8457-a0df89f45efd",
+      "objectiveId": "o1",
+      "title": "Fechar 5 usuários teste ativos",
+      "progress": 10
+    },
+    {
       "id": "g1",
       "objectiveId": "o1",
       "title": "Conseguir ganhar 10.000 com internet",
@@ -106,6 +126,12 @@
     }
   ],
   "habits": [
+    {
+      "id": "24882838-5141-4e74-b3d4-6cbd9cdde3cc",
+      "title": "Revisão de 15 min no fim do dia",
+      "frequency": "daily",
+      "streak": 0
+    },
     {
       "id": "h1",
       "title": "Treinar todos os dias (triathlon, jiu e muaythai)",
@@ -127,6 +153,15 @@
   ],
   "insights": [
     {
+      "id": "2b0d41f9-5d42-4125-8f32-a31f6cc7bb81",
+      "createdAt": "2026-05-15T12:42:29.833Z",
+      "summary": "Cenário de teste aplicado com sucesso",
+      "actions": [
+        "Validar dashboards por área"
+      ],
+      "energy": "high"
+    },
+    {
       "id": "i1",
       "createdAt": "2026-05-13T21:34:10.214Z",
       "summary": "Seu foco sobe quando treino e estudo são executados no mesmo dia.",
@@ -139,6 +174,13 @@
   ],
   "memory": [],
   "calendar": [
+    {
+      "id": "038b37b2-435d-4518-beca-90b0fd5780aa",
+      "source": "native",
+      "title": "Bloco teste de onboarding",
+      "startsAt": "2026-05-15T12:42:29.833Z",
+      "endsAt": "2026-05-15T13:27:29.833Z"
+    },
     {
       "id": "cal-1",
       "source": "native",
@@ -162,6 +204,14 @@
     }
   ],
   "fitness": [
+    {
+      "id": "6297bf56-9800-4f47-9075-afd3c8a7e03b",
+      "source": "strava",
+      "type": "Muay Thai",
+      "durationMin": 55,
+      "intensity": "high",
+      "startedAt": "2026-05-15T12:42:29.833Z"
+    },
     {
       "id": "fit-1",
       "source": "strava",

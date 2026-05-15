@@ -38,6 +38,14 @@ export const colors = {
   subtle: '#9CA3AF',
   inverse: '#FFFFFF',
   accent: '#2F6B5E',
+
+  // ── Dark theme aliases (usados nos componentes novos) ──────────────────
+  background:    '#030712',   // fundo escuro principal
+  surface:       '#111827',   // card/surface dark
+  surfaceAlt:    '#1A2234',   // surface alternativa
+  surfaceDim:    '#0D1117',   // surface mais escura
+  textMuted:     '#9CA3AF',   // texto muted dark
+  textSecondary: '#6B7280',   // texto secundário dark
 } as const;
 
 export const spacing = {
@@ -70,3 +78,16 @@ export const shadows = {
 export const animation = { fast: 200, normal: 300, slow: 500 } as const;
 
 export type Color = keyof typeof colors;
+
+// Objeto agregado para compatibilidade com imports { tokens }
+export const tokens = {
+  colors,
+  spacing,
+  radii,
+  fontSize,
+  fontWeight,
+  shadows,
+  animation,
+} as const;
+
+export type Tokens = typeof tokens;

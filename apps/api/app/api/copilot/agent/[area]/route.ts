@@ -17,9 +17,10 @@ const VALID_AREAS: LifeArea[] = [
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { area: string } }
+  routeContext: { params: Promise<{ area: string }> }
 ) {
   try {
+    const params = await routeContext.params;
     const area = params.area as LifeArea;
 
     if (!VALID_AREAS.includes(area)) {
@@ -55,9 +56,10 @@ export async function POST(
 // GET: retorna info do agente da área sem executar
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { area: string } }
+  routeContext: { params: Promise<{ area: string }> }
 ) {
   const { getAgentForArea, AGENT_DEFINITIONS } = await import('@/services/agents/agent-definitions');
+  const params = await routeContext.params;
   const area = params.area as LifeArea;
 
   const agent = AGENT_DEFINITIONS[area];
