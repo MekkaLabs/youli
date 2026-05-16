@@ -21,14 +21,13 @@ import {
 import Animated, {
   FadeIn,
   FadeOut,
-  SlideInDown,
-  SlideOutDown,
 } from 'react-native-reanimated';
 import { VoiceButton, VoiceState } from '../../atoms/VoiceButton';
+import { motionEnter } from '../../theme/motion';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3002';
 
 // Dicas de comando exibidas enquanto escuta
 const VOICE_HINTS = [
@@ -39,6 +38,14 @@ const VOICE_HINTS = [
   'Diga: "Bom dia" para o briefing',
   'Diga: "E se eu dormisse 8h por dia?"',
   'Diga: "Como estão minhas metas?"',
+];
+
+const QUICK_FALLBACK_COMMANDS = [
+  'Como está meu dia hoje?',
+  'Franklin, adicionar tarefa: revisar backlog',
+  'Aristóteles, novo hábito: meditar 10 minutos',
+  'Alexandre, criar meta: faturar R$ 10.000 este mês',
+  'Adam, registrar gasto de R$ 50 em alimentação',
 ];
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -117,6 +124,28 @@ export function VoiceInput({
     }
   }, []);
 
+  const executeVoiceCommand = useCallback(async (text: string) => {
+    const normalized = text.trim();
+    if (!normalized) return;
+    setTranscript(normalized);
+    onResult?.(normalized);
+
+    const res = await fetch(`${API_BASE}/api/voice/command`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: normalized, profileId, context }),
+    });
+
+    if (res.ok) {
+      const data: VoiceActionResult = await res.json();
+      setActionResult(data);
+      onAction?.(data);
+      setErrorMsg('');
+      return;
+    }
+    setErrorMsg('Não consegui interpretar o comando agora.');
+  }, [context, onAction, onResult, profileId]);
+
   // Inicia gravação
   const startListening = useCallback(async () => {
     setErrorMsg('');
@@ -181,25 +210,11 @@ export function VoiceInput({
 
       if (!transcribedText.trim()) {
         setVoiceState('idle');
-        setErrorMsg('Não entendi. Tente novamente.');
+        setErrorMsg('Reconhecimento por voz nativo indisponível neste ambiente. Use os comandos rápidos abaixo.');
         return;
       }
 
-      setTranscript(transcribedText);
-      onResult?.(transcribedText);
-
-      // Chama API de intenção
-      const res = await fetch(`${API_BASE}/api/voice/command`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: transcribedText, profileId, context }),
-      });
-
-      if (res.ok) {
-        const data: VoiceActionResult = await res.json();
-        setActionResult(data);
-        onAction?.(data);
-      }
+      await executeVoiceCommand(transcribedText);
 
       setVoiceState('idle');
     } catch (err) {
@@ -207,7 +222,7 @@ export function VoiceInput({
       setVoiceState('idle');
       setErrorMsg('Erro ao processar áudio.');
     }
-  }, [stopHintRotation, onResult, onAction, profileId, context]);
+  }, [stopHintRotation, executeVoiceCommand]);
 
   const handlePress = useCallback(() => {
     if (voiceState === 'idle') {
@@ -251,8 +266,7 @@ export function VoiceInput({
       >
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={handleClose}>
           <Animated.View
-            entering={SlideInDown.springify().damping(18)}
-            exiting={SlideOutDown.springify().damping(18)}
+            entering={motionEnter.sheetUp()}
             style={styles.sheet}
           >
             <TouchableOpacity activeOpacity={1}>
@@ -266,6 +280,9 @@ export function VoiceInput({
                 {voiceState === 'listening' && '🔴 Ouvindo...'}
                 {voiceState === 'processing' && '⚙️ Processando...'}
               </Text>
+              <TouchableOpacity style={styles.closeSheetBtn} onPress={handleClose}>
+                <Text style={styles.closeSheetText}>Fechar</Text>
+              </TouchableOpacity>
 
               {/* Botão central */}
               <View style={styles.micContainer}>
@@ -335,6 +352,17 @@ export function VoiceInput({
                   ].map((ex) => (
                     <Text key={ex} style={styles.exampleItem}>{ex}</Text>
                   ))}
+                  <View style={styles.quickCommandsRow}>
+                    {QUICK_FALLBACK_COMMANDS.map((command) => (
+                      <TouchableOpacity
+                        key={command}
+                        style={styles.quickCommandChip}
+                        onPress={() => executeVoiceCommand(command)}
+                      >
+                        <Text style={styles.quickCommandText}>{command}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </View>
               )}
 
@@ -412,6 +440,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
   },
+  closeSheetBtn: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#1F2937',
+  },
+  closeSheetText: {
+    color: '#E5E7EB',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   micContainer: {
     alignItems: 'center',
     gap: 12,
@@ -483,6 +525,23 @@ const styles = StyleSheet.create({
   examplesSection: {
     marginTop: 8,
     gap: 6,
+  },
+  quickCommandsRow: {
+    marginTop: 10,
+    gap: 8,
+  },
+  quickCommandChip: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  quickCommandText: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    fontWeight: '600',
   },
   examplesTitle: {
     color: '#4B5563',

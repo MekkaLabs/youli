@@ -8,12 +8,11 @@ import { Pressable, StyleSheet } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withSequence,
   withSpring,
   withTiming,
   interpolateColor,
-  Easing,
 } from 'react-native-reanimated';
+import { iosSpring, iosTiming } from '../../theme/motion';
 
 interface CheckButtonProps {
   checked: boolean;
@@ -37,16 +36,15 @@ export function CheckButton({
 
   useEffect(() => {
     if (checked) {
-      // Bounce ao checar
-      scale.value = withSequence(
-        withSpring(1.3, { damping: 8, stiffness: 300 }),
-        withSpring(0.9, { damping: 10 }),
-        withSpring(1, { damping: 12 }),
-      );
-      progress.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
+      // iOS-like: micro-pop sem overshoot agressivo
+      scale.value = withSpring(1.06, { ...iosSpring.gentle, overshootClamping: true });
+      setTimeout(() => {
+        scale.value = withSpring(1, iosSpring.gentle);
+      }, 80);
+      progress.value = withTiming(1, { duration: iosTiming.fast, easing: iosTiming.easeOut });
     } else {
-      scale.value = withSpring(1);
-      progress.value = withTiming(0, { duration: 150 });
+      scale.value = withSpring(1, iosSpring.gentle);
+      progress.value = withTiming(0, { duration: 140, easing: iosTiming.easeOut });
     }
   }, [checked]);
 

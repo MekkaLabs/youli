@@ -67,7 +67,7 @@ export function AgentInsightCard({
 
   return (
     <Animated.View
-      entering={FadeInDown.springify().damping(14)}
+      entering={FadeInDown.springify().damping(24).stiffness(220).mass(0.9)}
       style={[styles.container, style]}
     >
       {/* Header do agente */}
@@ -108,7 +108,7 @@ export function AgentInsightCard({
           {insights.map((insight, i) => (
             <Animated.View
               key={i}
-              entering={SlideInRight.delay(i * 80).springify()}
+              entering={SlideInRight.delay(i * 80).springify().damping(24).stiffness(220).mass(0.9)}
               style={styles.insightRow}
             >
               <View style={[styles.insightDot, { backgroundColor: agentColor }]} />

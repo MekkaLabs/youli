@@ -11,6 +11,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FullScrollLayout } from '../../src/templates/FullScrollLayout';
 import { AgentBadge } from '../../src/atoms/AgentBadge';
+import { useAgentAction } from '../../src/hooks/useAgentAction';
 import { useInsights, AIInsight } from '../../src/hooks/useInsights';
 import { CrossAreaInsights } from '../../src/organisms/CrossAreaInsights';
 
@@ -77,6 +78,7 @@ function InsightCardAI({ insight, index }: { insight: AIInsight; index: number }
 
 export default function InsightsScreen() {
   const insets = useSafeAreaInsets();
+  const onAgentPress = useAgentAction('insights', SOCRATES.name);
   const { insights, loading, lastUpdated, refresh } = useInsights();
   const [energyFilter, setEnergyFilter] = React.useState<'all' | 'alta' | 'media' | 'baixa'>('all');
 
@@ -102,7 +104,7 @@ export default function InsightsScreen() {
       title="Insights"
       subtitle="Padrões que revelam oportunidades"
       paddingBottom={insets.bottom + 90}
-      rightAction={<AgentBadge {...SOCRATES} compact onPress={() => {}} />}
+      rightAction={<AgentBadge {...SOCRATES} compact onPress={onAgentPress} />}
     >
       {/* Life Balance cross-area */}
       <CrossAreaInsights compact />

@@ -9,7 +9,7 @@ interface HabitStreakProps { habit: Habit; onPress?: () => void; index?: number;
 export function HabitStreak({ habit, onPress, index = 0 }: HabitStreakProps) {
   const isStrong = habit.streak >= 3;
   return (
-    <Animated.View entering={FadeInDown.delay(index * 60).springify()}>
+    <Animated.View entering={FadeInDown.delay(index * 60).springify().damping(24).stiffness(220).mass(0.9)}>
       <Pressable onPress={onPress} style={[styles.card, shadows.sm]}>
         <View style={styles.row}>
           <View style={styles.textBlock}>

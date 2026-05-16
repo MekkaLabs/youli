@@ -7,6 +7,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FullScrollLayout } from '../../src/templates/FullScrollLayout';
 import { AgentBadge } from '../../src/atoms/AgentBadge';
+import { useAgentAction } from '../../src/hooks/useAgentAction';
 import { SimulationChart } from '../../src/organisms/SimulationChart';
 import { LifeSimulator } from '../../src/organisms/LifeSimulator';
 
@@ -23,6 +24,7 @@ type TabId = 'projecao' | 'simulador';
 
 export default function SimularScreen() {
   const insets = useSafeAreaInsets();
+  const onAgentPress = useAgentAction('simular', LEONARDO.name);
   const [tab, setTab] = useState<TabId>('projecao');
 
   return (
@@ -30,7 +32,7 @@ export default function SimularScreen() {
       title="Simular"
       subtitle="Visualize seu futuro, decida hoje"
       paddingBottom={insets.bottom + 90}
-      rightAction={<AgentBadge {...LEONARDO} compact onPress={() => {}} />}
+      rightAction={<AgentBadge {...LEONARDO} compact onPress={onAgentPress} />}
     >
       {/* Tabs */}
       <View style={styles.tabs}>

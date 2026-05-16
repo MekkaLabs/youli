@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 
 // URL leve para ping — usa API local em dev, fallback externo em produção
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3002';
 const PING_URL = typeof window !== 'undefined'
   ? `${API_BASE}/api/me/summary`   // API local — sem CORS, sempre disponível em dev
   : 'https://www.gstatic.com/generate_204'; // native: ping externo

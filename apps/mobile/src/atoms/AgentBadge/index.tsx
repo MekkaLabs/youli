@@ -16,9 +16,9 @@ import Animated, {
   FadeIn,
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
 } from 'react-native-reanimated';
 import { tokens } from '../../theme/tokens';
+import { pressScaleIn, pressScaleOut } from '../../theme/motion';
 
 export interface AgentBadgeProps {
   name: string;         // Ex: "Leonardo"
@@ -50,11 +50,11 @@ export function AgentBadge({
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.95, { damping: 15 });
+    scale.value = pressScaleIn(0.97);
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15 });
+    scale.value = pressScaleOut(1);
   };
 
   return (

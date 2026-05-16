@@ -163,6 +163,73 @@ export async function runWhatIfSimulation(
   return { current, withChanges, delta };
 }
 
+// ── Tree of Thought ──────────────────────────────────────────────────────────
+
+export interface ToTBranch {
+  type: 'optimistic' | 'realistic' | 'conservative';
+  label: string;
+  description: string;
+  viabilityScore: number; // 0-100
+  simulation: SimulationResult;
+}
+
+export interface ToTSimulationResult {
+  branches: [ToTBranch, ToTBranch, ToTBranch];
+  recommendedBranch: 'optimistic' | 'realistic' | 'conservative';
+  recommendedReason: string;
+  generatedAt: Date;
+}
+
+export async function runToTSimulation(
+  snapshot: LifeSnapshot,
+  horizonDays: SimulationHorizon = 90,
+  orchestratorName = 'Youli'
+): Promise<ToTSimulationResult> {
+  const [optimisticSim, realisticSim, conservativeSim] = await Promise.all([
+    runLifeSimulation(snapshot, horizonDays, 'best_case', undefined, orchestratorName),
+    runLifeSimulation(snapshot, horizonDays, 'current_trajectory', undefined, orchestratorName),
+    runLifeSimulation(snapshot, horizonDays, 'worst_case', undefined, orchestratorName),
+  ]);
+
+  const habitsWithStreak = snapshot.habits.filter(h => h.streak >= 7).length;
+  const optimisticViability = Math.min(95, habitsWithStreak * 10 + 60);
+  const realisticViability = realisticSim.overallScore;
+  const conservativeViability = Math.max(20, conservativeSim.overallScore - 25);
+
+  const branches: [ToTBranch, ToTBranch, ToTBranch] = [
+    {
+      type: 'optimistic',
+      label: '🚀 Otimista',
+      description: 'Você executa 90%+ dos planos — máximo potencial desbloqueado.',
+      viabilityScore: optimisticViability,
+      simulation: optimisticSim,
+    },
+    {
+      type: 'realistic',
+      label: '🎯 Realista',
+      description: 'Performance média histórica — trajetória mais provável.',
+      viabilityScore: realisticViability,
+      simulation: realisticSim,
+    },
+    {
+      type: 'conservative',
+      label: '🛡️ Conservador',
+      description: 'Performance 30% abaixo do histórico — cenário de cautela.',
+      viabilityScore: conservativeViability,
+      simulation: conservativeSim,
+    },
+  ];
+
+  const recommendedReason = `Baseado no seu histórico de ${snapshot.habits.length} hábitos e performance atual de ${realisticSim.overallScore}%`;
+
+  return {
+    branches,
+    recommendedBranch: 'realistic',
+    recommendedReason,
+    generatedAt: new Date(),
+  };
+}
+
 function generateFallbackSimulation(
   snapshot: LifeSnapshot, horizonDays: SimulationHorizon,
   scenarioType: ScenarioType, orchName: string, horizonLabel: string

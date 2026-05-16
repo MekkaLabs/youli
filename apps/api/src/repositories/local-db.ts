@@ -1,6 +1,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { CalendarEvent, DailyInsight, FitnessActivity, Goal, Habit, MemoryRecord, Task, UserProfile } from '@youli/shared';
+import type {
+  AIPersonalization,
+  CalendarEvent,
+  DailyInsight,
+  FitnessActivity,
+  Goal,
+  Habit,
+  HumanDesignSettings,
+  MemoryRecord,
+  PersonaId,
+  Task,
+  UserProfile
+} from '@youli/shared';
 
 export interface LocalDb {
   profile: UserProfile;
@@ -18,6 +30,64 @@ const dbPath = path.join(process.cwd(), 'src', 'repositories', '.data', 'db.json
 
 function nowIso() { return new Date().toISOString(); }
 
+const PERSONA_AREA_MAP = {
+  leonardo: 'dashboard',
+  franklin: 'tarefas',
+  aristoteles: 'habitos',
+  alexandre: 'metas',
+  adam: 'financeiro',
+  hipocrates: 'fitness',
+  newton: 'calendario',
+  socrates: 'insights',
+  tesla: 'foco',
+  marco: 'perfil',
+} as const;
+
+const DEFAULT_HD_SETTINGS: HumanDesignSettings = {
+  enabled: false,
+  consentAccepted: false,
+  mode: 'off',
+};
+
+function buildDefaultAiPersonalization(): AIPersonalization {
+  const personaIds = Object.keys(PERSONA_AREA_MAP) as PersonaId[];
+  return {
+    personas: personaIds.map((personaId) => ({
+      personaId,
+      area: PERSONA_AREA_MAP[personaId],
+      enabled: true,
+      humanDesignEnabled: false
+    }))
+  };
+}
+
+function ensureProfileDefaults(profile: UserProfile): UserProfile {
+  const aiPersonalization = profile.aiPersonalization || buildDefaultAiPersonalization();
+  const personaById = new Map(aiPersonalization.personas.map((p) => [p.personaId, p]));
+  const normalizedPersonas = (Object.keys(PERSONA_AREA_MAP) as PersonaId[]).map((personaId) => {
+    const existing = personaById.get(personaId);
+    return {
+      personaId,
+      area: PERSONA_AREA_MAP[personaId],
+      enabled: existing?.enabled ?? true,
+      humanDesignEnabled: existing?.humanDesignEnabled ?? false
+    };
+  });
+
+  const { provisionalPassword: _unusedProvisionalPassword, ...safeProfile } = profile as UserProfile & { provisionalPassword?: string };
+
+  return {
+    ...safeProfile,
+    humanDesign: {
+      ...DEFAULT_HD_SETTINGS,
+      ...(profile.humanDesign || {})
+    },
+    aiPersonalization: {
+      personas: normalizedPersonas
+    }
+  };
+}
+
 const defaultDb: LocalDb = {
   profile: {
     id: 'u1',
@@ -26,7 +96,6 @@ const defaultDb: LocalDb = {
     role: 'Admin Master',
     age: 33,
     avatarUrl: '/profile/gustavo-vicente.jpg',
-    provisionalPassword: 'teste123',
     timezone: 'America/Sao_Paulo',
     objectives: ['Ganhar R$10.000 com internet', 'Manter rotina de alta performance'],
     routine: ['Treino diário', 'Programação', 'Estudo', 'Fechamento do dia 00:00'],
@@ -37,7 +106,9 @@ const defaultDb: LocalDb = {
     energyProfile: 'high',
     persistentContext: ['Prefere visão por sistema, não chatbot', 'Quer tudo integrado em um único fluxo'],
     integrations: { strava: 'connected', openFinance: 'connected', calendar: 'connected', nativeCalendar: 'connected' }
-    ,activeModules: ['overview', 'tarefas', 'habitos', 'metas', 'financeiro', 'calendario', 'insights', 'fitness', 'perfil', 'memoria', 'orquestracao']
+    ,activeModules: ['overview', 'tarefas', 'habitos', 'metas', 'financeiro', 'calendario', 'insights', 'fitness', 'perfil', 'memoria', 'orquestracao'],
+    humanDesign: DEFAULT_HD_SETTINGS,
+    aiPersonalization: buildDefaultAiPersonalization()
   },
   connections: [
     { id: 'conn-strava', provider: 'strava', status: 'connected', syncedAt: nowIso() },
@@ -73,7 +144,9 @@ export function readDb(): LocalDb {
     fs.writeFileSync(dbPath, JSON.stringify(defaultDb, null, 2));
     return structuredClone(defaultDb);
   }
-  return JSON.parse(fs.readFileSync(dbPath, 'utf8')) as LocalDb;
+  const parsed = JSON.parse(fs.readFileSync(dbPath, 'utf8')) as LocalDb;
+  parsed.profile = ensureProfileDefaults(parsed.profile);
+  return parsed;
 }
 
 export function writeDb(db: LocalDb) {

@@ -1,4 +1,64 @@
 export type EnergyLevel = 'low' | 'medium' | 'high';
+export type HumanDesignMode = 'off' | 'assistive';
+export type PersonaId =
+  | 'leonardo'
+  | 'franklin'
+  | 'aristoteles'
+  | 'alexandre'
+  | 'adam'
+  | 'hipocrates'
+  | 'newton'
+  | 'socrates'
+  | 'tesla'
+  | 'marco';
+
+export interface HumanDesignBirthData {
+  date: string;
+  time: string;
+  location: string;
+  timezone?: string;
+}
+
+export interface HumanDesignChart {
+  type?: string;
+  strategy?: string;
+  authority?: string;
+  profile?: string;
+  definition?: string;
+  centers?: string[];
+  channels?: string[];
+  gates?: string[];
+  summary?: string;
+}
+
+export interface HumanDesignSettings {
+  enabled: boolean;
+  consentAccepted: boolean;
+  mode: HumanDesignMode;
+  birthData?: HumanDesignBirthData;
+  chart?: HumanDesignChart;
+}
+
+export interface PersonaPersonalization {
+  personaId: PersonaId;
+  area:
+    | 'dashboard'
+    | 'tarefas'
+    | 'habitos'
+    | 'metas'
+    | 'financeiro'
+    | 'fitness'
+    | 'calendario'
+    | 'insights'
+    | 'foco'
+    | 'perfil';
+  enabled: boolean;
+  humanDesignEnabled: boolean;
+}
+
+export interface AIPersonalization {
+  personas: PersonaPersonalization[];
+}
 
 export interface UserProfile {
   id: string;
@@ -24,6 +84,8 @@ export interface UserProfile {
     nativeCalendar: 'connected' | 'disconnected';
   };
   activeModules?: string[];
+  humanDesign?: HumanDesignSettings;
+  aiPersonalization?: AIPersonalization;
 }
 
 export interface LifeArea { id: string; userId: string; name: string; description?: string; }

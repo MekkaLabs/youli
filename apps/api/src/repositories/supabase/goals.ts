@@ -43,3 +43,19 @@ export async function updateGoalProgress(id: string, progress: number): Promise<
   if (error) throw new Error(error.message);
   return rowToGoal(data);
 }
+
+export async function deleteGoal(id: string): Promise<void> {
+  if (!id) return;
+  if (!hasSupabase() || !PROFILE_ID) {
+    const db = readDb();
+    db.goals = db.goals.filter((goal) => goal.id !== id);
+    writeDb(db);
+    return;
+  }
+  const { error } = await supabase!
+    .from('goals')
+    .delete()
+    .eq('id', id)
+    .eq('profile_id', PROFILE_ID);
+  if (error) throw new Error(error.message);
+}

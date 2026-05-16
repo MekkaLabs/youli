@@ -3,9 +3,12 @@
  * Gerencia: check/uncheck, cálculo de streak, datas completadas, milestone detection
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMilestone } from '../molecules/StreakMilestone';
+import { AppState, AppStateStatus } from 'react-native';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3002';
+const SYNC_INTERVAL_MS = 20000;
 
 export interface HabitData {
   id: string;
@@ -148,6 +151,22 @@ function generateDemoCompletions(streakDays: number): string[] {
   return dates;
 }
 
+function fromApiHabit(h: any): HabitData {
+  const palette = ['#059669', '#7C3AED', '#D97706', '#DC2626', '#0891B2'];
+  return {
+    id: String(h.id),
+    title: String(h.title || 'Hábito'),
+    emoji: '🏛️',
+    color: palette[Math.abs(String(h.id).split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % palette.length],
+    frequency: h.frequency === 'weekly' ? 'weekly' : 'daily',
+    category: 'Mente',
+    streak: Number(h.streak ?? 0),
+    bestStreak: Number(h.streak ?? 0),
+    completedDates: [],
+    createdAt: new Date().toISOString(),
+  };
+}
+
 export interface MilestoneAlert {
   habitId: string;
   habitTitle: string;
@@ -159,10 +178,30 @@ export function useHabits() {
   const [habits, setHabits] = useState<HabitData[]>([]);
   const [loading, setLoading] = useState(true);
   const [milestone, setMilestone] = useState<MilestoneAlert | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const isSyncingRef = useRef(false);
 
-  // Carrega do storage
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
+  const loadFromStorage = useCallback(async () => {
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+    setSyncing(true);
+    setSyncError(null);
+    const api = await fetch(`${API_BASE}/api/habits`).catch(() => null);
+    if (api?.ok) {
+      const list = await api.json().catch(() => []);
+      const mapped = (Array.isArray(list) ? list : []).map(fromApiHabit);
+      setHabits(mapped);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
+      setLastSyncAt(new Date().toISOString());
+      setSyncing(false);
+      setLoading(false);
+      isSyncingRef.current = false;
+      return;
+    }
+    setSyncError('offline');
+    const raw = await AsyncStorage.getItem(STORAGE_KEY);
       if (raw) {
         try {
           setHabits(JSON.parse(raw));
@@ -173,15 +212,25 @@ export function useHabits() {
         setHabits(DEFAULT_HABITS);
         AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_HABITS));
       }
+      setSyncing(false);
       setLoading(false);
-    });
+      isSyncingRef.current = false;
   }, []);
 
-  // Salva quando muda
-  const save = useCallback((updated: HabitData[]) => {
-    setHabits(updated);
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  }, []);
+  // Carrega do storage + sincroniza entre abas/telas
+  useEffect(() => {
+    loadFromStorage();
+    const timer = setInterval(loadFromStorage, SYNC_INTERVAL_MS);
+    const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
+      if (state === 'active') {
+        loadFromStorage();
+      }
+    });
+    return () => {
+      clearInterval(timer);
+      sub.remove();
+    };
+  }, [loadFromStorage]);
 
   // Toggle check do dia
   const toggleToday = useCallback((habitId: string) => {
@@ -223,7 +272,12 @@ export function useHabits() {
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       return updated;
     });
-  }, []);
+    fetch(`${API_BASE}/api/habits`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: habitId, action: 'checkin' }),
+    }).then(() => loadFromStorage()).catch(() => null);
+  }, [loadFromStorage]);
 
   const dismissMilestone = useCallback(() => setMilestone(null), []);
 
@@ -242,7 +296,25 @@ export function useHabits() {
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       return updated;
     });
-  }, []);
+    fetch(`${API_BASE}/api/habits`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title: habit.title }),
+    }).then(() => loadFromStorage()).catch(() => null);
+  }, [loadFromStorage]);
+
+  const restoreHabit = useCallback((habit: HabitData) => {
+    setHabits(prev => {
+      const next = [habit, ...prev.filter((h) => h.id !== habit.id)];
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+    fetch(`${API_BASE}/api/habits`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title: habit.title }),
+    }).then(() => loadFromStorage()).catch(() => null);
+  }, [loadFromStorage]);
 
 
   const deleteHabit = useCallback((id: string) => {
@@ -251,7 +323,12 @@ export function useHabits() {
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       return updated;
     });
-  }, []);
+    fetch(`${API_BASE}/api/habits`, {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id }),
+    }).then(() => loadFromStorage()).catch(() => null);
+  }, [loadFromStorage]);
 
   const editHabit = useCallback((id: string, patch: Partial<Pick<HabitData, 'title' | 'emoji' | 'color' | 'category' | 'frequency'>>) => {
     setHabits(prev => {
@@ -278,11 +355,18 @@ export function useHabits() {
   return {
     habits,
     loading,
+    syncing,
+    syncError,
+    lastSyncAt,
     stats,
     milestone,
     toggleToday,
     dismissMilestone,
     addHabit,
+    restoreHabit,
+    deleteHabit,
+    editHabit,
     isCompletedToday,
+    refresh: loadFromStorage
   };
 }

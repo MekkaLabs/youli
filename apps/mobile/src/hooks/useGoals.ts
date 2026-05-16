@@ -3,8 +3,11 @@
  * Gerencia: progresso, marcos (milestones), prazo, categorias, Alexandre insights
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState, AppStateStatus } from 'react-native';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3002';
+const SYNC_INTERVAL_MS = 20000;
 
 export type GoalStatus = 'active' | 'completed' | 'paused' | 'at_risk';
 export type GoalCategory = 'carreira' | 'financeiro' | 'saude' | 'aprendizado' | 'relacionamentos' | 'pessoal';
@@ -161,12 +164,58 @@ const DEFAULT_GOALS: GoalData[] = [
   },
 ];
 
+function fromApiGoal(g: any): GoalData {
+  const target = 100;
+  const progress = Number(g.progress ?? 0);
+  return {
+    id: String(g.id),
+    title: String(g.title ?? 'Meta'),
+    emoji: '⚔️',
+    color: '#DC2626',
+    category: 'pessoal',
+    currentValue: progress,
+    targetValue: target,
+    unit: '%',
+    startDate: new Date().toISOString().split('T')[0],
+    deadline: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
+    milestones: [
+      { id: 'm1', title: '25%', targetValue: 25 },
+      { id: 'm2', title: '50%', targetValue: 50 },
+      { id: 'm3', title: '75%', targetValue: 75 },
+      { id: 'm4', title: '100% ✓', targetValue: 100 },
+    ],
+    status: 'active',
+    weeklyUpdates: [{ date: new Date().toISOString().split('T')[0], value: progress }],
+  };
+}
+
 export function useGoals() {
   const [goals, setGoals] = useState<GoalData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const isSyncingRef = useRef(false);
 
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
+  const loadFromStorage = useCallback(async () => {
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+    setSyncing(true);
+    setSyncError(null);
+    const api = await fetch(`${API_BASE}/api/goals`).catch(() => null);
+    if (api?.ok) {
+      const list = await api.json().catch(() => []);
+      const mapped = (Array.isArray(list) ? list : []).map(fromApiGoal);
+      setGoals(mapped);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
+      setLastSyncAt(new Date().toISOString());
+      setSyncing(false);
+      setLoading(false);
+      isSyncingRef.current = false;
+      return;
+    }
+    setSyncError('offline');
+    const raw = await AsyncStorage.getItem(STORAGE_KEY);
       if (raw) {
         try { setGoals(JSON.parse(raw)); }
         catch { setGoals(DEFAULT_GOALS); }
@@ -174,9 +223,24 @@ export function useGoals() {
         setGoals(DEFAULT_GOALS);
         AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_GOALS));
       }
+      setSyncing(false);
       setLoading(false);
-    });
+      isSyncingRef.current = false;
   }, []);
+
+  useEffect(() => {
+    loadFromStorage();
+    const timer = setInterval(loadFromStorage, SYNC_INTERVAL_MS);
+    const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
+      if (state === 'active') {
+        loadFromStorage();
+      }
+    });
+    return () => {
+      clearInterval(timer);
+      sub.remove();
+    };
+  }, [loadFromStorage]);
 
   const updateProgress = useCallback((goalId: string, newValue: number, note?: string) => {
     setGoals((prev) => {
@@ -199,7 +263,12 @@ export function useGoals() {
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       return updated;
     });
-  }, []);
+    fetch(`${API_BASE}/api/goals`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: goalId, progress: Math.max(0, Math.min(100, Math.round(newValue))) }),
+    }).then(() => loadFromStorage()).catch(() => null);
+  }, [loadFromStorage]);
 
   const addGoal = useCallback((goal: Omit<GoalData, 'id' | 'status' | 'weeklyUpdates'>) => {
     const newGoal: GoalData = {
@@ -213,7 +282,25 @@ export function useGoals() {
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       return updated;
     });
-  }, []);
+    fetch(`${API_BASE}/api/goals`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title: goal.title }),
+    }).then(() => loadFromStorage()).catch(() => null);
+  }, [loadFromStorage]);
+
+  const restoreGoal = useCallback((goal: GoalData) => {
+    setGoals(prev => {
+      const next = [goal, ...prev.filter((g) => g.id !== goal.id)];
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+    fetch(`${API_BASE}/api/goals`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title: goal.title }),
+    }).then(() => loadFromStorage()).catch(() => null);
+  }, [loadFromStorage]);
 
 
   const deleteGoal = useCallback((id: string) => {
@@ -222,7 +309,12 @@ export function useGoals() {
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       return updated;
     });
-  }, []);
+    fetch(`${API_BASE}/api/goals`, {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id }),
+    }).then(() => loadFromStorage()).catch(() => null);
+  }, [loadFromStorage]);
 
   const pauseGoal = useCallback((id: string) => {
     setGoals(prev => {
@@ -252,5 +344,22 @@ export function useGoals() {
     milestonesReached: goals.reduce((s, g) => s + g.milestones.filter(m => !!m.reachedAt).length, 0),
   };
 
-  return { goals, loading, stats, updateProgress, addGoal, deleteGoal, pauseGoal, resumeGoal, goalStatus, progressPercent, daysUntil };
+  return {
+    goals,
+    loading,
+    syncing,
+    syncError,
+    lastSyncAt,
+    stats,
+    updateProgress,
+    addGoal,
+    restoreGoal,
+    deleteGoal,
+    pauseGoal,
+    resumeGoal,
+    goalStatus,
+    progressPercent,
+    daysUntil,
+    refresh: loadFromStorage
+  };
 }

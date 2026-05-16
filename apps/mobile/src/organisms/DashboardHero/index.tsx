@@ -98,7 +98,7 @@ export function DashboardHero({ data, onOpenCopilot }: DashboardHeroProps) {
   });
 
   return (
-    <Animated.View entering={FadeInUp.springify()} style={styles.card}>
+    <Animated.View entering={FadeInUp.springify().damping(24).stiffness(220).mass(0.9)} style={styles.card}>
       {/* Top row — saudação + energia */}
       <View style={styles.topRow}>
         <View style={styles.greetBlock}>
@@ -118,7 +118,7 @@ export function DashboardHero({ data, onOpenCopilot }: DashboardHeroProps) {
       </View>
 
       {/* Rings de progresso */}
-      <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.ringsRow}>
+      <Animated.View entering={FadeInDown.delay(100).springify().damping(24).stiffness(220).mass(0.9)} style={styles.ringsRow}>
         <MiniRing value={habitScore}  color="#059669" label="Hábitos" />
         <MiniRing value={goalScore}   color="#D97706" label="Metas" />
         <MiniRing value={stepsScore}  color="#7C3AED" label="Passos" />

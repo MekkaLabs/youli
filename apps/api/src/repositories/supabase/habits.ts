@@ -53,3 +53,19 @@ export async function checkinHabit(id: string): Promise<Habit> {
   }
   return rowToHabit(data);
 }
+
+export async function deleteHabit(id: string): Promise<void> {
+  if (!id) return;
+  if (!hasSupabase() || !PROFILE_ID) {
+    const db = readDb();
+    db.habits = db.habits.filter((habit) => habit.id !== id);
+    writeDb(db);
+    return;
+  }
+  const { error } = await supabase!
+    .from('habits')
+    .delete()
+    .eq('id', id)
+    .eq('profile_id', PROFILE_ID);
+  if (error) throw new Error(error.message);
+}

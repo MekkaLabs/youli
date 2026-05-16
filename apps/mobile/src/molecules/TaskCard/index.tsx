@@ -22,7 +22,7 @@ export function TaskCard({ task, onPress, onComplete, index = 0 }: TaskCardProps
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
-    <Animated.View entering={FadeInDown.delay(index * 60).springify()}>
+    <Animated.View entering={FadeInDown.delay(index * 60).springify().damping(24).stiffness(220).mass(0.9)}>
       <AnimPressable
         onPress={() => onPress?.(task)}
         onPressIn={() => { scale.value = withSpring(0.98, { damping: 15 }); }}

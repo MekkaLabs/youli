@@ -8,12 +8,16 @@ import {
   LifeArea,
   OrchestratorConfig,
   DEFAULT_ORCHESTRATOR,
+  PERSONA_AREA_MAP,
   getAgentForArea,
   detectAreaFromMessage,
 } from './agent-definitions';
+import type { HumanDesignSettings, MemoryRecord, PersonaPersonalization } from '@youli/shared';
+import { buildMemoryContext } from './memory-scoring';
+import { getFunctionPack } from '../kernel/function-packs';
+import { pickModel, type Mode } from '../kernel/model-policy';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const CLAUDE_MODEL = 'claude-sonnet-4-6';
 
 export interface UserContext {
   profile?: {
@@ -22,6 +26,10 @@ export interface UserContext {
     lifeAreas?: string[];
     orchestratorName?: string;
     orchestratorEmoji?: string;
+    humanDesign?: HumanDesignSettings;
+    aiPersonalization?: {
+      personas: PersonaPersonalization[];
+    };
   };
   tasks?: Array<{ title: string; status: string; priority: number; nextStep?: string }>;
   habits?: Array<{ title: string; streak: number; frequency: string; lastCheckin?: string }>;
@@ -40,6 +48,7 @@ export interface UserContext {
   calendar?: Array<{ title: string; date: string; type: string }>;
   insights?: Array<{ content: string; type: string }>;
   memoryContext?: string[];
+  memoryRecords?: MemoryRecord[];
 }
 
 export interface AgentResponse {
@@ -64,8 +73,16 @@ export async function executeAgent(
   area: LifeArea,
   userMessage: string,
   context: UserContext,
-  orchestratorConfig?: Partial<OrchestratorConfig>
+  orchestratorConfig?: Partial<OrchestratorConfig>,
+  mode?: Mode
 ): Promise<AgentResponse> {
+  const persona = getPersonaByArea(context, area);
+  if (persona && !persona.enabled) {
+    const fallbackAgent = getAgentForArea(area);
+    const orchestrator = { ...DEFAULT_ORCHESTRATOR, ...orchestratorConfig };
+    const orchestratorName = context.profile?.orchestratorName || orchestrator.name;
+    return generateFallbackResponse(fallbackAgent, userMessage, context, orchestratorName);
+  }
   const agent = getAgentForArea(area);
   const apiKey = process.env.ANTHROPIC_API_KEY;
   const orchestrator = { ...DEFAULT_ORCHESTRATOR, ...orchestratorConfig };
@@ -76,8 +93,12 @@ export async function executeAgent(
     return generateFallbackResponse(agent, userMessage, context, orchestratorName);
   }
 
-  const contextBlock = buildContextBlock(area, context);
+  const contextBlock = buildContextBlock(area, context, userMessage);
+  const hdContextBlock = buildHumanDesignContext(area, context);
   const userPrompt = `${contextBlock}
+${hdContextBlock ? `\n${hdContextBlock}\n` : ''}
+PACK DE FUNCOES DA AREA:
+${getFunctionPack(area).map((x) => `- ${x}`).join('\n')}
 
 MENSAGEM DO USUÁRIO: "${userMessage}"
 
@@ -100,7 +121,7 @@ Retorne um JSON com esta estrutura exata:
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: CLAUDE_MODEL,
+        model: pickModel(mode || 'analysis', area),
         max_tokens: 600,
         system: agent.systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
@@ -174,7 +195,7 @@ export async function multiAgentAnalysis(
 // HELPERS
 // ──────────────────────────────────────────────
 
-function buildContextBlock(area: LifeArea, ctx: UserContext): string {
+function buildContextBlock(area: LifeArea, ctx: UserContext, userMessage?: string): string {
   const blocks: string[] = [];
 
   if (ctx.profile) {
@@ -215,11 +236,53 @@ function buildContextBlock(area: LifeArea, ctx: UserContext): string {
     blocks.push(`AGENDA: ${events}`);
   }
 
-  if (ctx.memoryContext?.length) {
-    blocks.push(`CONTEXTO ANTERIOR: ${ctx.memoryContext.slice(0, 2).join(' | ')}`);
+  const ranked = buildMemoryContext(userMessage || '', ctx);
+  const memory = [...(ctx.memoryContext || []), ...ranked];
+  if (memory.length) {
+    blocks.push(`CONTEXTO ANTERIOR: ${memory.slice(0, 3).join(' | ')}`);
   }
 
   return blocks.join('\n');
+}
+
+function getPersonaByArea(ctx: UserContext, area: LifeArea): PersonaPersonalization | null {
+  const personas = ctx.profile?.aiPersonalization?.personas || [];
+  const persona = personas.find((p) => p.area === area) || null;
+  if (!persona) return null;
+  const mappedArea = PERSONA_AREA_MAP[persona.personaId];
+  if (mappedArea !== area) return null;
+  return persona;
+}
+
+function buildHumanDesignContext(area: LifeArea, ctx: UserContext): string {
+  const hd = ctx.profile?.humanDesign;
+  const persona = getPersonaByArea(ctx, area);
+  if (!hd || !persona) return '';
+
+  const canUseHD =
+    hd.enabled === true &&
+    hd.consentAccepted === true &&
+    hd.mode === 'assistive' &&
+    persona.humanDesignEnabled === true;
+
+  if (!canUseHD) return '';
+
+  const birth = hd.birthData;
+  const chart = hd.chart;
+  if (!birth && !chart) return '';
+
+  const chunks: string[] = ['HUMAN DESIGN CONTEXTO (assistivo, opcional):'];
+  if (birth) {
+    chunks.push(`- Nascimento: ${birth.date} ${birth.time} em ${birth.location}${birth.timezone ? ` (${birth.timezone})` : ''}`);
+  }
+  if (chart?.type) chunks.push(`- Tipo: ${chart.type}`);
+  if (chart?.strategy) chunks.push(`- Estratégia: ${chart.strategy}`);
+  if (chart?.authority) chunks.push(`- Autoridade: ${chart.authority}`);
+  if (chart?.profile) chunks.push(`- Perfil HD: ${chart.profile}`);
+  if (chart?.definition) chunks.push(`- Definição: ${chart.definition}`);
+  if (chart?.summary) chunks.push(`- Resumo: ${chart.summary}`);
+  chunks.push('- Use este contexto apenas para personalizar tom e recomendações, sem afirmar certezas absolutas.');
+  return chunks.join('\n');
 }
 
 function generateFallbackResponse(

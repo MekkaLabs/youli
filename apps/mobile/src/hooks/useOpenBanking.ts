@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3002';
 const CONNECTIONS_KEY = '@youli:bank_connections';
 
 export interface BankAccount {

@@ -4,7 +4,7 @@
  * Body: { snapshot, horizonDays, scenarioType, orchestratorConfig }
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { runLifeSimulation, LifeSnapshot, SimulationHorizon, ScenarioType } from '@/services/simulation/life-simulator';
+import { runLifeSimulation, runToTSimulation, LifeSnapshot, SimulationHorizon, ScenarioType } from '@/services/simulation/life-simulator';
 import { getAreaGraphContext } from '@/services/graph/life-graph';
 
 export async function POST(req: NextRequest) {
@@ -16,12 +16,14 @@ export async function POST(req: NextRequest) {
       scenarioType = 'current_trajectory',
       orchestratorName = 'Youli',
       profileId,
+      mode,
     } = body as {
       snapshot: LifeSnapshot;
       horizonDays: SimulationHorizon;
       scenarioType: ScenarioType;
       orchestratorName?: string;
       profileId?: string;
+      mode?: 'tot' | 'standard';
     };
 
     // Enriquece com contexto do GraphRAG
@@ -32,6 +34,11 @@ export async function POST(req: NextRequest) {
           snapshot.graphCorrelations = [graphCtx.summary];
         }
       } catch {}
+    }
+
+    if (mode === 'tot') {
+      const totResult = await runToTSimulation(snapshot, horizonDays, orchestratorName);
+      return NextResponse.json(totResult);
     }
 
     const result = await runLifeSimulation(snapshot, horizonDays, scenarioType, undefined, orchestratorName);

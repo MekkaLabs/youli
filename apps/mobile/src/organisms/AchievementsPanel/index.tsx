@@ -61,7 +61,7 @@ export function AchievementToast({ achievement, onDismiss }: { achievement: { ti
   return (
     <Modal visible={!!achievement} transparent animationType="none" onRequestClose={onDismiss}>
       <Animated.View entering={FadeIn.duration(300)} style={styles.toastOverlay}>
-        <Animated.View entering={ZoomIn.springify()} style={styles.toast}>
+        <Animated.View entering={ZoomIn.springify().damping(24).stiffness(220).mass(0.9)} style={styles.toast}>
           <Text style={styles.toastIcon}>{achievement.icon}</Text>
           <View style={styles.toastBody}>
             <Text style={styles.toastTitle}>Conquista desbloqueada!</Text>

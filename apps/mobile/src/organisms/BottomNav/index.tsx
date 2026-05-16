@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fontWeight, fontSize, radii, spacing, shadows } from '../../theme/tokens';
+import { pressScaleIn, pressScaleOut } from '../../theme/motion';
 
 export type TabKey =
   | 'dashboard' | 'habitos' | 'copilot' | 'metas' | 'mais'
@@ -39,8 +40,8 @@ function NavItem({ tab, isActive, onPress, isCopilot }: {
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   const handlePress = () => {
-    scale.value = withSpring(0.85, { damping: 10 });
-    setTimeout(() => { scale.value = withSpring(1, { damping: 12 }); }, 120);
+    scale.value = pressScaleIn(0.95);
+    setTimeout(() => { scale.value = pressScaleOut(1); }, 80);
     onPress();
   };
 

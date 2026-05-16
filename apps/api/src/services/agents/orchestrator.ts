@@ -10,19 +10,23 @@ import {
   LifeArea,
   OrchestratorConfig,
   DEFAULT_ORCHESTRATOR,
+  PERSONA_AREA_MAP,
   getAllAgents,
   detectAreaFromMessage,
 } from './agent-definitions';
 import {
-  executeAgent,
   multiAgentAnalysis,
   orchestrateWithAgents,
   UserContext,
   AgentResponse,
 } from './agent-executor';
+import { runOrchestratorGraph } from './langgraph-orchestrator';
+import { resumeOrchestratorGraph } from './langgraph-orchestrator';
+import { pickModel } from '../kernel/model-policy';
+import { appendEvent } from './event-stream';
+import { createApproval } from './approval-queue';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const CLAUDE_MODEL = 'claude-sonnet-4-6';
 
 export interface OrchestratorResponse {
   orchestratorName: string;
@@ -38,6 +42,21 @@ export interface OrchestratorResponse {
   }>;
   mood: 'encouraging' | 'alert' | 'celebratory' | 'analytical';
   nextSteps: string[];
+  graph?: {
+    threadId: string;
+    area: LifeArea;
+    events: string[];
+    workflowVersion?: number;
+    checkpointStatus: 'completed' | 'interrupted';
+  };
+  handoff?: {
+    area: LifeArea;
+    reason: string;
+    agentName: string;
+  };
+  interrupted?: {
+    reason: string;
+  };
 }
 
 /**
@@ -56,44 +75,110 @@ export function getOrchestratorConfig(overrides?: Partial<OrchestratorConfig>): 
 export async function runOrchestrator(
   userMessage: string,
   context: UserContext,
-  orchestratorConfig?: Partial<OrchestratorConfig>
+  orchestratorConfig?: Partial<OrchestratorConfig>,
+  options?: { threadId?: string; allowResume?: boolean }
 ): Promise<OrchestratorResponse> {
   const config = getOrchestratorConfig(orchestratorConfig);
   const orchName = context.profile?.orchestratorName || config.name;
   const orchEmoji = context.profile?.orchestratorEmoji || config.emoji;
+  const threadId = options?.threadId || `thread_${Date.now()}`;
+  appendEvent({
+    threadId,
+    type: 'user_message',
+    payload: { message: userMessage, allowResume: options?.allowResume || false }
+  });
 
-  // Detecta área primária
-  const primaryArea = detectAreaFromMessage(userMessage);
+  try {
+    const graphResult = options?.allowResume
+      ? await resumeOrchestratorGraph({
+          threadId,
+          userMessage,
+          context,
+          orchestratorConfig,
+          allowResume: options?.allowResume
+        }) || await runOrchestratorGraph({
+          threadId,
+          userMessage,
+          context,
+          orchestratorConfig,
+          allowResume: options?.allowResume,
+        })
+      : await runOrchestratorGraph({
+          threadId,
+          userMessage,
+          context,
+          orchestratorConfig,
+          allowResume: options?.allowResume,
+        });
 
-  // Executa agente primário
-  const primaryAgent = await orchestrateWithAgents(
-    userMessage,
-    context,
-    orchestratorConfig,
-    primaryArea
-  );
-
-  // Determina agentes relacionados para sugestão
-  const suggestedAgents = getSuggestedAgents(primaryArea, context);
-
-  // Síntese do orquestrador (uma camada acima dos agentes)
-  const synthesis = await synthesize(orchName, primaryAgent, userMessage, context);
-
-  // Determina humor/tom da resposta
-  const mood = determineMood(context, primaryAgent);
-
-  // Próximos passos consolidados
-  const nextSteps = consolidateNextSteps(primaryAgent);
-
-  return {
-    orchestratorName: orchName,
-    orchestratorEmoji: orchEmoji,
-    primaryAgent,
-    synthesis,
-    suggestedAgents,
-    mood,
-    nextSteps,
-  };
+    const synthesis = await synthesize(orchName, graphResult.primaryAgent, userMessage, context);
+    appendEvent({
+      threadId,
+      type: 'agent_response',
+      area: graphResult.primaryArea,
+      payload: {
+        synthesis,
+        primaryAgent: graphResult.primaryAgent.agentName,
+        interrupted: false
+      }
+    });
+    return {
+      orchestratorName: orchName,
+      orchestratorEmoji: orchEmoji,
+      primaryAgent: graphResult.primaryAgent,
+      synthesis,
+      suggestedAgents: graphResult.suggestedAgents,
+      mood: graphResult.mood,
+      nextSteps: graphResult.nextSteps,
+      graph: {
+        threadId,
+        area: graphResult.primaryArea,
+        events: graphResult.events,
+        workflowVersion: graphResult.workflowVersion,
+        checkpointStatus: 'completed'
+      },
+      handoff: graphResult.handoffAgent && graphResult.handoffArea && graphResult.handoffReason
+        ? {
+            area: graphResult.handoffArea,
+            reason: graphResult.handoffReason,
+            agentName: graphResult.handoffAgent.agentName,
+          }
+        : undefined
+    };
+  } catch (err) {
+    const requestedArea = detectAreaFromMessage(userMessage);
+    const primaryArea = isPersonaEnabledForArea(context, requestedArea) ? requestedArea : 'dashboard';
+    const primaryAgent = await orchestrateWithAgents(userMessage, context, orchestratorConfig, primaryArea);
+    const suggestedAgents = getSuggestedAgents(primaryArea, context);
+    const synthesis = await synthesize(orchName, primaryAgent, userMessage, context);
+    const message = err instanceof Error ? err.message : '';
+    const isInterrupted = message.startsWith('INTERRUPTED:');
+    if (isInterrupted) {
+      createApproval(threadId, primaryArea, message.replace('INTERRUPTED:', ''));
+    }
+    appendEvent({
+      threadId,
+      type: isInterrupted ? 'interrupt' : 'system',
+      area: primaryArea,
+      payload: { error: message, interrupted: isInterrupted }
+    });
+    return {
+      orchestratorName: orchName,
+      orchestratorEmoji: orchEmoji,
+      primaryAgent,
+      synthesis,
+      suggestedAgents,
+      mood: determineMood(context, primaryAgent),
+      nextSteps: consolidateNextSteps(primaryAgent),
+      graph: {
+        threadId,
+        area: primaryArea,
+        events: [`fallback:${isInterrupted ? 'interrupted' : 'error'}`],
+        checkpointStatus: isInterrupted ? 'interrupted' : 'completed'
+      },
+      interrupted: isInterrupted ? { reason: message.replace('INTERRUPTED:', '') } : undefined
+    };
+  }
 }
 
 /**
@@ -167,7 +252,7 @@ Responda APENAS as 1-2 frases de síntese, sem JSON, em português do Brasil.`;
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: CLAUDE_MODEL,
+        model: pickModel('synthesis', primaryAgent.area),
         max_tokens: 150,
         messages: [{ role: 'user', content: prompt }],
       }),
@@ -214,7 +299,7 @@ Tom: como Jarvis do Tony Stark — inteligente, caloroso, sem enrolação. Em po
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: CLAUDE_MODEL,
+        model: pickModel('synthesis', 'dashboard'),
         max_tokens: 200,
         messages: [{ role: 'user', content: prompt }],
       }),
@@ -279,4 +364,11 @@ function determineMood(
 
 function consolidateNextSteps(agent: AgentResponse): string[] {
   return [...agent.actions, ...agent.insights.slice(0, 1)].slice(0, 4);
+}
+
+function isPersonaEnabledForArea(context: UserContext, area: LifeArea): boolean {
+  const personas = context.profile?.aiPersonalization?.personas || [];
+  const persona = personas.find((p) => p.area === area);
+  if (!persona) return true;
+  return PERSONA_AREA_MAP[persona.personaId] === area && persona.enabled;
 }

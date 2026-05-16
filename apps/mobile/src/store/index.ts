@@ -13,6 +13,59 @@ export interface UserProfile {
   bio?: string;
   xp: number;
   level: number;
+  humanDesign: HumanDesignSettings;
+  aiPersonalization: AIPersonalization;
+}
+
+export type HumanDesignMode = 'off' | 'assistive';
+export type PersonaId =
+  | 'leonardo'
+  | 'franklin'
+  | 'aristoteles'
+  | 'alexandre'
+  | 'adam'
+  | 'hipocrates'
+  | 'newton'
+  | 'socrates'
+  | 'tesla'
+  | 'marco';
+
+export interface HumanDesignBirthData {
+  date: string;
+  time: string;
+  location: string;
+  timezone?: string;
+}
+
+export interface HumanDesignChart {
+  type?: string;
+  strategy?: string;
+  authority?: string;
+  profile?: string;
+  definition?: string;
+  centers?: string[];
+  channels?: string[];
+  gates?: string[];
+  summary?: string;
+}
+
+export interface HumanDesignSettings {
+  enabled: boolean;
+  consentAccepted: boolean;
+  mode: HumanDesignMode;
+  birthData?: HumanDesignBirthData;
+  chart?: HumanDesignChart;
+}
+
+export interface PersonaPersonalization {
+  personaId: PersonaId;
+  area: 'dashboard' | 'tarefas' | 'habitos' | 'metas' | 'financeiro' | 'fitness' | 'calendario' | 'insights' | 'foco' | 'perfil';
+  enabled: boolean;
+  humanDesignEnabled: boolean;
+}
+
+export interface AIPersonalization {
+  personas: PersonaPersonalization[];
 }
 
 export interface AppSettings {
@@ -42,13 +95,44 @@ interface StoreState {
 type Action =
   | { type: 'SET_PROFILE'; payload: Partial<UserProfile> }
   | { type: 'ADD_XP'; payload: number }
+  | { type: 'SET_HD'; payload: Partial<HumanDesignSettings> }
+  | { type: 'SET_PERSONA'; payload: { personaId: PersonaId; enabled?: boolean; humanDesignEnabled?: boolean } }
   | { type: 'SET_SETTINGS'; payload: Partial<AppSettings> }
   | { type: 'SET_NOTIF_PREF'; payload: { key: keyof AppSettings['notifications']; value: boolean } }
   | { type: 'COMPLETE_ONBOARDING' }
   | { type: 'SET_UI'; payload: Partial<UIState> }
   | { type: 'HYDRATE'; payload: Partial<StoreState> };
 
-const DEFAULT_PROFILE: UserProfile = { name: 'Gustavo', orchestratorName: 'Youli', xp: 0, level: 1 };
+const PERSONA_AREA_MAP: Record<PersonaId, PersonaPersonalization['area']> = {
+  leonardo: 'dashboard',
+  franklin: 'tarefas',
+  aristoteles: 'habitos',
+  alexandre: 'metas',
+  adam: 'financeiro',
+  hipocrates: 'fitness',
+  newton: 'calendario',
+  socrates: 'insights',
+  tesla: 'foco',
+  marco: 'perfil',
+};
+
+function defaultPersonas(): PersonaPersonalization[] {
+  return (Object.keys(PERSONA_AREA_MAP) as PersonaId[]).map((personaId) => ({
+    personaId,
+    area: PERSONA_AREA_MAP[personaId],
+    enabled: true,
+    humanDesignEnabled: false,
+  }));
+}
+
+const DEFAULT_PROFILE: UserProfile = {
+  name: 'Gustavo',
+  orchestratorName: 'Youli',
+  xp: 0,
+  level: 1,
+  humanDesign: { enabled: false, consentAccepted: false, mode: 'off' },
+  aiPersonalization: { personas: defaultPersonas() },
+};
 const DEFAULT_SETTINGS: AppSettings = {
   notifications: { daily_digest: true, habit_reminders: true, goal_alerts: true, finance_alerts: true },
   digestHour: 8,
@@ -69,6 +153,32 @@ function reducer(state: StoreState, action: Action): StoreState {
       const newXP = state.profile.xp + action.payload;
       return { ...state, profile: { ...state.profile, xp: newXP, level: Math.floor(newXP / 500) + 1 } };
     }
+    case 'SET_HD':
+      return {
+        ...state,
+        profile: {
+          ...state.profile,
+          humanDesign: { ...state.profile.humanDesign, ...action.payload }
+        }
+      };
+    case 'SET_PERSONA':
+      return {
+        ...state,
+        profile: {
+          ...state.profile,
+          aiPersonalization: {
+            personas: state.profile.aiPersonalization.personas.map((persona) =>
+              persona.personaId === action.payload.personaId
+                ? {
+                    ...persona,
+                    enabled: typeof action.payload.enabled === 'boolean' ? action.payload.enabled : persona.enabled,
+                    humanDesignEnabled: typeof action.payload.humanDesignEnabled === 'boolean' ? action.payload.humanDesignEnabled : persona.humanDesignEnabled
+                  }
+                : persona
+            )
+          }
+        }
+      };
     case 'SET_SETTINGS':
       return { ...state, settings: { ...state.settings, ...action.payload } };
     case 'SET_NOTIF_PREF':
@@ -101,7 +211,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         AsyncStorage.getItem(SETTINGS_KEY),
       ]);
       const patch: Partial<StoreState> = {};
-      if (profileRaw) patch.profile = { ...DEFAULT_PROFILE, ...JSON.parse(profileRaw) };
+      if (profileRaw) {
+        const parsed = JSON.parse(profileRaw) as Partial<UserProfile>;
+        const incomingPersonas = parsed.aiPersonalization?.personas || [];
+        const personaMap = new Map(incomingPersonas.map((p) => [p.personaId, p]));
+        const personas = defaultPersonas().map((p) => ({
+          ...p,
+          ...(personaMap.get(p.personaId) || {})
+        }));
+        patch.profile = {
+          ...DEFAULT_PROFILE,
+          ...parsed,
+          humanDesign: { ...DEFAULT_PROFILE.humanDesign, ...(parsed.humanDesign || {}) },
+          aiPersonalization: { personas }
+        };
+      }
       if (settingsRaw) patch.settings = { ...DEFAULT_SETTINGS, ...JSON.parse(settingsRaw) };
       dispatch({ type: 'HYDRATE', payload: patch });
     })();
@@ -131,7 +255,10 @@ export function useProfile() {
   const { state, dispatch } = useStoreCtx();
   const setProfile = useCallback((patch: Partial<UserProfile>) => dispatch({ type: 'SET_PROFILE', payload: patch }), [dispatch]);
   const addXP = useCallback((amount: number) => dispatch({ type: 'ADD_XP', payload: amount }), [dispatch]);
-  return { profile: state.profile, setProfile, addXP };
+  const setHumanDesign = useCallback((patch: Partial<HumanDesignSettings>) => dispatch({ type: 'SET_HD', payload: patch }), [dispatch]);
+  const setPersona = useCallback((payload: { personaId: PersonaId; enabled?: boolean; humanDesignEnabled?: boolean }) =>
+    dispatch({ type: 'SET_PERSONA', payload }), [dispatch]);
+  return { profile: state.profile, setProfile, addXP, setHumanDesign, setPersona };
 }
 
 export function useSettings() {

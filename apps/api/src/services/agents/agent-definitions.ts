@@ -18,6 +18,19 @@ export type LifeArea =
   | 'foco'
   | 'perfil';
 
+export const PERSONA_AREA_MAP = {
+  leonardo: 'dashboard',
+  franklin: 'tarefas',
+  aristoteles: 'habitos',
+  alexandre: 'metas',
+  adam: 'financeiro',
+  hipocrates: 'fitness',
+  newton: 'calendario',
+  socrates: 'insights',
+  tesla: 'foco',
+  marco: 'perfil',
+} as const satisfies Record<string, LifeArea>;
+
 export interface AgentDefinition {
   id: string;
   area: LifeArea;

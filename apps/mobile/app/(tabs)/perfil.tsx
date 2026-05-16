@@ -2,7 +2,7 @@
  * Perfil — identidade, XP, conquistas e configurações
  * Dados reais via hooks + Store global
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, SafeAreaView,
   Switch, ScrollView, TextInput,
@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FullScrollLayout } from '../../src/templates/FullScrollLayout';
 import { ProgressRing } from '../../src/atoms/ProgressRing';
 import { AgentBadge } from '../../src/atoms/AgentBadge';
+import { useAgentAction } from '../../src/hooks/useAgentAction';
 import { OrchestratorSetup } from '../../src/organisms/OrchestratorSetup';
 import { XPBar, AchievementsPanel } from '../../src/organisms/AchievementsPanel';
 import { WeeklyReview } from '../../src/organisms/WeeklyReview';
@@ -21,6 +22,9 @@ import { useHabits } from '../../src/hooks/useHabits';
 import { useGoals } from '../../src/hooks/useGoals';
 import { useWeeklyReview } from '../../src/hooks/useWeeklyReview';
 import { useXP } from '../../src/hooks/useXP';
+import type { PersonaId } from '../../src/store';
+
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3002';
 
 const AGENT = {
   name: 'Marco',
@@ -32,7 +36,8 @@ const AGENT = {
 
 export default function PerfilScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, setProfile } = useProfile();
+  const onAgentPress = useAgentAction('perfil', AGENT.name);
+  const { profile, setProfile, setHumanDesign, setPersona } = useProfile();
   const { settings, setNotifPref } = useSettings();
   const { xpData, achievements } = useXP();
   const { shouldShow: showReview, openManually, saveReview, dismiss } = useWeeklyReview();
@@ -41,6 +46,102 @@ export default function PerfilScreen() {
   const [showSettings, setShowSettings] = useState(false);
   const [editName, setEditName] = useState(false);
   const [nameInput, setNameInput] = useState(profile.name);
+  const [hdBirthDate, setHdBirthDate] = useState(profile.humanDesign.birthData?.date || '');
+  const [hdBirthTime, setHdBirthTime] = useState(profile.humanDesign.birthData?.time || '');
+  const [hdBirthLocation, setHdBirthLocation] = useState(profile.humanDesign.birthData?.location || '');
+
+  const PERSONA_LABELS: Record<PersonaId, string> = {
+    leonardo: 'Leonardo',
+    franklin: 'Franklin',
+    aristoteles: 'Aristóteles',
+    alexandre: 'Alexandre',
+    adam: 'Adam',
+    hipocrates: 'Hipócrates',
+    newton: 'Newton',
+    socrates: 'Sócrates',
+    tesla: 'Tesla',
+    marco: 'Marco'
+  };
+
+  const AREA_LABELS: Record<string, string> = {
+    dashboard: 'Dashboard',
+    tarefas: 'Tarefas',
+    habitos: 'Hábitos',
+    metas: 'Metas',
+    financeiro: 'Financeiro',
+    fitness: 'Fitness',
+    calendario: 'Calendário',
+    insights: 'Insights',
+    foco: 'Foco',
+    perfil: 'Perfil',
+  };
+
+  async function patchHumanDesign(payload: Record<string, unknown>) {
+    setHumanDesign(payload as Partial<typeof profile.humanDesign>);
+    const res = await fetch(`${API_BASE}/api/settings/human-design`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(() => null);
+
+    if (res?.ok) {
+      const latest = await res.json().catch(() => null);
+      if (latest && typeof latest === 'object') {
+        setHumanDesign(latest as Partial<typeof profile.humanDesign>);
+      }
+    }
+  }
+
+  async function patchPersona(payload: { personaId: PersonaId; enabled?: boolean; humanDesignEnabled?: boolean }) {
+    setPersona(payload);
+    await fetch(`${API_BASE}/api/settings/personas`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(() => null);
+  }
+
+  async function saveBirthData() {
+    await patchHumanDesign({
+      birthData: {
+        date: hdBirthDate.trim(),
+        time: hdBirthTime.trim(),
+        location: hdBirthLocation.trim()
+      }
+    });
+  }
+
+  useEffect(() => {
+    if (!showSettings) return;
+    fetch(`${API_BASE}/api/settings/human-design`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (!json) return;
+        setHumanDesign(json as Partial<typeof profile.humanDesign>);
+        const birth = (json as { birthData?: { date?: string; time?: string; location?: string } }).birthData;
+        if (birth) {
+          setHdBirthDate(birth.date || '');
+          setHdBirthTime(birth.time || '');
+          setHdBirthLocation(birth.location || '');
+        }
+      })
+      .catch(() => null);
+
+    fetch(`${API_BASE}/api/settings/personas`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        const personas = (json as { personas?: Array<{ personaId: PersonaId; enabled?: boolean; humanDesignEnabled?: boolean }> } | null)?.personas;
+        if (!personas) return;
+        personas.forEach((persona) => {
+          setPersona({
+            personaId: persona.personaId,
+            enabled: persona.enabled,
+            humanDesignEnabled: persona.humanDesignEnabled
+          });
+        });
+      })
+      .catch(() => null);
+  }, [showSettings, setHumanDesign, setPersona]);
 
   const habits = useHabits();
   const goals = useGoals();
@@ -74,7 +175,7 @@ export default function PerfilScreen() {
       title="Perfil"
       subtitle="Sua identidade em evolução"
       paddingBottom={insets.bottom + 90}
-      rightAction={<AgentBadge {...AGENT} compact onPress={() => {}} />}
+      rightAction={<AgentBadge {...AGENT} compact onPress={onAgentPress} />}
     >
       {/* Avatar + nome */}
       <Animated.View entering={FadeInDown.delay(0)} style={styles.avatarCard}>
@@ -215,6 +316,103 @@ export default function PerfilScreen() {
               <Text style={styles.settingLabel}>Stack</Text>
               <Text style={styles.settingValue}>Expo 53 + Claude API</Text>
             </View>
+
+            <View style={styles.settingsDivider} />
+            <Text style={styles.settingsSection}>Configurações Avançadas</Text>
+
+            <View style={styles.settingRow}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.settingLabel}>Human Design Global</Text>
+                <Text style={styles.settingDesc}>Ativa personalização assistiva por HD</Text>
+              </View>
+              <Switch
+                value={profile.humanDesign.enabled}
+                onValueChange={(v) => patchHumanDesign({ enabled: v })}
+                trackColor={{ true: '#7C3AED', false: '#1F2937' }}
+                thumbColor="#fff"
+              />
+            </View>
+
+            <View style={styles.settingRow}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.settingLabel}>Consentimento HD</Text>
+                <Text style={styles.settingDesc}>Necessário para uso de dados de nascimento</Text>
+              </View>
+              <Switch
+                value={profile.humanDesign.consentAccepted}
+                onValueChange={(v) => patchHumanDesign({ consentAccepted: v })}
+                trackColor={{ true: '#7C3AED', false: '#1F2937' }}
+                thumbColor="#fff"
+              />
+            </View>
+
+            <View style={styles.settingRow}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.settingLabel}>Modo Assistivo HD</Text>
+                <Text style={styles.settingDesc}>Somente sugestões, sem inferências absolutas</Text>
+              </View>
+              <Switch
+                value={profile.humanDesign.mode === 'assistive'}
+                onValueChange={(v) => patchHumanDesign({ mode: v ? 'assistive' : 'off' })}
+                trackColor={{ true: '#7C3AED', false: '#1F2937' }}
+                thumbColor="#fff"
+              />
+            </View>
+
+            <View style={styles.hdFormCard}>
+              <Text style={styles.settingLabel}>Dados de Nascimento</Text>
+              <TextInput
+                style={styles.hdInput}
+                value={hdBirthDate}
+                onChangeText={setHdBirthDate}
+                placeholder="Data (AAAA-MM-DD)"
+                placeholderTextColor="#6B7280"
+              />
+              <TextInput
+                style={styles.hdInput}
+                value={hdBirthTime}
+                onChangeText={setHdBirthTime}
+                placeholder="Hora (HH:MM)"
+                placeholderTextColor="#6B7280"
+              />
+              <TextInput
+                style={styles.hdInput}
+                value={hdBirthLocation}
+                onChangeText={setHdBirthLocation}
+                placeholder="Local de nascimento"
+                placeholderTextColor="#6B7280"
+              />
+              <TouchableOpacity style={styles.hdSaveBtn} onPress={saveBirthData}>
+                <Text style={styles.hdSaveBtnText}>Salvar dados HD</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.settingsSection}>Personas (Área Fixa)</Text>
+            {profile.aiPersonalization.personas.map((persona) => (
+              <View key={persona.personaId} style={styles.personaCard}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingLabel}>{PERSONA_LABELS[persona.personaId]} · {AREA_LABELS[persona.area]}</Text>
+                </View>
+                <View style={styles.personaSwitchCol}>
+                  <Text style={styles.personaSwitchLabel}>Ativo</Text>
+                  <Switch
+                    value={persona.enabled}
+                    onValueChange={(v) => patchPersona({ personaId: persona.personaId, enabled: v })}
+                    trackColor={{ true: '#16A34A', false: '#1F2937' }}
+                    thumbColor="#fff"
+                  />
+                </View>
+                <View style={styles.personaSwitchCol}>
+                  <Text style={styles.personaSwitchLabel}>HD</Text>
+                  <Switch
+                    value={persona.humanDesignEnabled}
+                    onValueChange={(v) => patchPersona({ personaId: persona.personaId, humanDesignEnabled: v })}
+                    trackColor={{ true: '#7C3AED', false: '#1F2937' }}
+                    thumbColor="#fff"
+                  />
+                </View>
+              </View>
+            ))}
           </ScrollView>
         </SafeAreaView>
       </Modal>
@@ -264,4 +462,11 @@ const styles = StyleSheet.create({
   settingDesc: { fontSize: 12, color: '#6B7280' },
   settingValue: { fontSize: 13, color: '#6B7280', fontWeight: '600' },
   settingsDivider: { height: 1, backgroundColor: '#111827' },
+  hdFormCard: { backgroundColor: '#111827', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#1F2937', gap: 8 },
+  hdInput: { backgroundColor: '#0B1220', borderRadius: 10, borderWidth: 1, borderColor: '#1F2937', paddingHorizontal: 10, paddingVertical: 8, color: '#F9FAFB', fontSize: 13 },
+  hdSaveBtn: { marginTop: 4, backgroundColor: '#7C3AED', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  hdSaveBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  personaCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#111827', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#1F2937' },
+  personaSwitchCol: { alignItems: 'center', gap: 4 },
+  personaSwitchLabel: { fontSize: 10, color: '#6B7280', fontWeight: '700', textTransform: 'uppercase' },
 });

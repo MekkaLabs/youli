@@ -51,7 +51,7 @@ interface LifeSimulatorProps {
   orchestratorName?: string;
 }
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3002';
 
 export function LifeSimulator({ userContext = {}, orchestratorName = 'Youli' }: LifeSimulatorProps) {
   const [mode, setMode] = useState<Mode>('trajectory');
@@ -115,7 +115,7 @@ export function LifeSimulator({ userContext = {}, orchestratorName = 'Youli' }: 
       </Animated.View>
 
       {/* Mode toggle */}
-      <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.modeRow}>
+      <Animated.View entering={FadeInDown.delay(100).springify().damping(24).stiffness(220).mass(0.9)} style={styles.modeRow}>
         {(['trajectory', 'whatif'] as Mode[]).map((m) => (
           <TouchableOpacity
             key={m}
@@ -131,7 +131,7 @@ export function LifeSimulator({ userContext = {}, orchestratorName = 'Youli' }: 
       </Animated.View>
 
       {/* Horizon selector */}
-      <Animated.View entering={FadeInDown.delay(150).springify()} style={styles.horizonRow}>
+      <Animated.View entering={FadeInDown.delay(150).springify().damping(24).stiffness(220).mass(0.9)} style={styles.horizonRow}>
         {HORIZONS.map((h) => (
           <TouchableOpacity
             key={h.value}
@@ -148,7 +148,7 @@ export function LifeSimulator({ userContext = {}, orchestratorName = 'Youli' }: 
 
       {/* What-if changes */}
       {mode === 'whatif' && (
-        <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.changesSection}>
+        <Animated.View entering={FadeInDown.delay(200).springify().damping(24).stiffness(220).mass(0.9)} style={styles.changesSection}>
           <Text style={styles.sectionLabel}>Escolha as mudanças a simular</Text>
           {WHATIF_PRESETS.map((preset, i) => {
             const selected = !!selectedChanges.find((c) => c.change === preset.change);
@@ -177,7 +177,7 @@ export function LifeSimulator({ userContext = {}, orchestratorName = 'Youli' }: 
       )}
 
       {/* CTA */}
-      <Animated.View entering={FadeInDown.delay(250).springify()} style={styles.ctaRow}>
+      <Animated.View entering={FadeInDown.delay(250).springify().damping(24).stiffness(220).mass(0.9)} style={styles.ctaRow}>
         <Button
           label={loading ? 'Simulando...' : `Simular ${HORIZONS.find(h => h.value === horizon)?.label}`}
           variant="primary"
@@ -189,7 +189,7 @@ export function LifeSimulator({ userContext = {}, orchestratorName = 'Youli' }: 
 
       {/* RESULTADO: Trajetória atual */}
       {result && !loading && (
-        <Animated.View entering={FadeInDown.springify()} style={styles.resultSection}>
+        <Animated.View entering={FadeInDown.springify().damping(24).stiffness(220).mass(0.9)} style={styles.resultSection}>
           {/* Score geral */}
           <View style={[styles.scoreCard, { borderColor: SCORE_COLOR(result.overallScore) + '40' }]}>
             <Text style={[styles.scoreNumber, { color: SCORE_COLOR(result.overallScore) }]}>
@@ -237,7 +237,7 @@ export function LifeSimulator({ userContext = {}, orchestratorName = 'Youli' }: 
 
       {/* RESULTADO: What-if */}
       {whatIfResult && !loading && (
-        <Animated.View entering={FadeInDown.springify()} style={styles.resultSection}>
+        <Animated.View entering={FadeInDown.springify().damping(24).stiffness(220).mass(0.9)} style={styles.resultSection}>
           <View style={styles.compareHeader}>
             <View style={styles.compareCol}>
               <Text style={styles.compareLabel}>ATUAL</Text>

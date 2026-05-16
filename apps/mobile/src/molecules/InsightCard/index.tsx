@@ -11,7 +11,7 @@ const energyVariant = { low: 'yellow', medium: 'blue', high: 'green' } as const;
 
 export function InsightCard({ insight, index = 0 }: InsightCardProps) {
   return (
-    <Animated.View entering={FadeInDown.delay(index * 80).springify()} style={[styles.card, shadows.sm]}>
+    <Animated.View entering={FadeInDown.delay(index * 80).springify().damping(24).stiffness(220).mass(0.9)} style={[styles.card, shadows.sm]}>
       <View style={styles.header}>
         <Text style={styles.icon}>💡</Text>
         <Badge label={`Energia ${insight.energy}`} variant={energyVariant[insight.energy]} />

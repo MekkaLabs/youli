@@ -13,7 +13,7 @@ import { useHabits } from '../../hooks/useHabits';
 import { useGoals } from '../../hooks/useGoals';
 import { useFinance } from '../../hooks/useFinance';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3002';
 
 interface TrajectoryPoint {
   day: number;
@@ -37,6 +37,180 @@ interface SimulationResult {
   risks: string[];
   opportunities: string[];
 }
+
+// ── Tree of Thought types (inline — mirrors api types) ────────────────────
+interface AreaPrediction {
+  area: string;
+  agentName: string;
+  currentState: string;
+  projectedState: string;
+  keyMetrics: Array<{ name: string; current: string; projected: string; trend: 'up' | 'down' | 'stable' }>;
+  risks: string[];
+  opportunities: string[];
+  confidence: number;
+}
+
+interface ApiSimulationResult {
+  scenarioType: string;
+  horizonDays: number;
+  horizonLabel: string;
+  overallScore: number;
+  overallTrend: 'improving' | 'declining' | 'stable';
+  summary: string;
+  predictions: AreaPrediction[];
+  criticalInsight: string;
+  topOpportunity: string;
+  topRisk: string;
+  generatedAt: string;
+}
+
+interface ToTBranch {
+  type: 'optimistic' | 'realistic' | 'conservative';
+  label: string;
+  description: string;
+  viabilityScore: number;
+  simulation: ApiSimulationResult;
+}
+
+interface ToTSimulationResult {
+  branches: [ToTBranch, ToTBranch, ToTBranch];
+  recommendedBranch: 'optimistic' | 'realistic' | 'conservative';
+  recommendedReason: string;
+  generatedAt: string;
+}
+
+const TOT_COLORS: Record<string, string> = {
+  optimistic: '#22c55e',
+  realistic: '#3b82f6',
+  conservative: '#f59e0b',
+};
+
+// ── ToT Branch Card ────────────────────────────────────────────────────────
+function ToTBranchCard({ branch, isRecommended }: { branch: ToTBranch; isRecommended: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const color = TOT_COLORS[branch.type] ?? '#7C3AED';
+
+  return (
+    <Animated.View entering={FadeInDown} style={[totStyles.card, { borderColor: color + '55' }]}>
+      <View style={totStyles.cardHeader}>
+        <View style={totStyles.labelRow}>
+          <Text style={[totStyles.label, { color }]}>{branch.label}</Text>
+          {isRecommended && (
+            <View style={[totStyles.badge, { backgroundColor: color + '33', borderColor: color + '77' }]}>
+              <Text style={[totStyles.badgeText, { color }]}>Recomendado</Text>
+            </View>
+          )}
+        </View>
+        <View style={[totStyles.scoreBadge, { backgroundColor: color + '22' }]}>
+          <Text style={[totStyles.scoreText, { color }]}>{branch.viabilityScore}%</Text>
+        </View>
+      </View>
+
+      <Text style={totStyles.description}>{branch.description}</Text>
+
+      <View style={totStyles.overallRow}>
+        <Text style={totStyles.overallLabel}>Score geral</Text>
+        <Text style={[totStyles.overallValue, { color }]}>{branch.simulation.overallScore}/100</Text>
+      </View>
+
+      {branch.simulation.summary ? (
+        <Text style={totStyles.summary} numberOfLines={expanded ? undefined : 2}>
+          {branch.simulation.summary}
+        </Text>
+      ) : null}
+
+      <TouchableOpacity onPress={() => setExpanded(v => !v)} style={[totStyles.detailsBtn, { borderColor: color + '55' }]}>
+        <Text style={[totStyles.detailsBtnText, { color }]}>{expanded ? 'Ocultar detalhes' : 'Ver detalhes'}</Text>
+      </TouchableOpacity>
+
+      {expanded && (
+        <Animated.View entering={FadeIn} style={totStyles.details}>
+          {branch.simulation.criticalInsight ? (
+            <View style={totStyles.insightRow}>
+              <Text style={totStyles.insightKey}>Insight: </Text>
+              <Text style={totStyles.insightVal}>{branch.simulation.criticalInsight}</Text>
+            </View>
+          ) : null}
+          {branch.simulation.topOpportunity ? (
+            <View style={totStyles.insightRow}>
+              <Text style={[totStyles.insightKey, { color: '#22c55e' }]}>Oportunidade: </Text>
+              <Text style={totStyles.insightVal}>{branch.simulation.topOpportunity}</Text>
+            </View>
+          ) : null}
+          {branch.simulation.topRisk ? (
+            <View style={totStyles.insightRow}>
+              <Text style={[totStyles.insightKey, { color: '#ef4444' }]}>Risco: </Text>
+              <Text style={totStyles.insightVal}>{branch.simulation.topRisk}</Text>
+            </View>
+          ) : null}
+          {branch.simulation.predictions?.slice(0, 3).map((p, i) => (
+            <View key={i} style={totStyles.predRow}>
+              <Text style={totStyles.predArea}>{p.area}</Text>
+              <Text style={totStyles.predState}>{p.projectedState}</Text>
+            </View>
+          ))}
+        </Animated.View>
+      )}
+    </Animated.View>
+  );
+}
+
+// ── ToT Panel ─────────────────────────────────────────────────────────────
+function ToTPanel({ totResult }: { totResult: ToTSimulationResult }) {
+  return (
+    <View style={totStyles.root}>
+      <Text style={totStyles.title}>Tree of Thought — 3 Cenários</Text>
+      <Text style={totStyles.subtitle}>{totResult.recommendedReason}</Text>
+      {totResult.branches.map(branch => (
+        <ToTBranchCard
+          key={branch.type}
+          branch={branch}
+          isRecommended={branch.type === totResult.recommendedBranch}
+        />
+      ))}
+    </View>
+  );
+}
+
+const totStyles = StyleSheet.create({
+  root: { gap: 12 },
+  title: { fontSize: 16, fontWeight: '900', color: '#F9FAFB' },
+  subtitle: { fontSize: 12, color: '#6B7280', marginTop: -6 },
+  card: {
+    backgroundColor: '#111827', borderRadius: 16, padding: 14,
+    borderWidth: 1.5, gap: 8,
+  },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  label: { fontSize: 15, fontWeight: '800' },
+  badge: {
+    borderRadius: 99, paddingHorizontal: 8, paddingVertical: 2,
+    borderWidth: 1,
+  },
+  badgeText: { fontSize: 10, fontWeight: '700' },
+  scoreBadge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
+  scoreText: { fontSize: 16, fontWeight: '900' },
+  description: { fontSize: 12, color: '#9CA3AF', lineHeight: 18 },
+  overallRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  overallLabel: { fontSize: 12, color: '#6B7280', fontWeight: '600' },
+  overallValue: { fontSize: 18, fontWeight: '900' },
+  summary: { fontSize: 12, color: '#D1D5DB', lineHeight: 18 },
+  detailsBtn: {
+    alignSelf: 'flex-start', borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderWidth: 1,
+  },
+  detailsBtnText: { fontSize: 12, fontWeight: '700' },
+  details: { gap: 6, marginTop: 4 },
+  insightRow: { flexDirection: 'row', flexWrap: 'wrap' },
+  insightKey: { fontSize: 11, fontWeight: '700', color: '#9CA3AF' },
+  insightVal: { fontSize: 11, color: '#D1D5DB', flex: 1, lineHeight: 16 },
+  predRow: {
+    backgroundColor: '#1F2937', borderRadius: 8, padding: 8, gap: 2,
+  },
+  predArea: { fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' },
+  predState: { fontSize: 12, color: '#D1D5DB', lineHeight: 16 },
+});
 
 function buildLocalProjection(
   habitCompletionRate: number,
@@ -165,7 +339,11 @@ function TrajectoryChart({ result, activeScenario, width, height = 180 }: ChartP
 }
 
 // ── Principal ─────────────────────────────────────────────────────────────
-export function SimulationChart() {
+interface SimulationChartProps {
+  totResult?: ToTSimulationResult;
+}
+
+export function SimulationChart({ totResult }: SimulationChartProps = {}) {
   const { stats: habitStats } = useHabits();
   const { goals, goalStatus, progressPercent } = useGoals();
   const { monthlySummary } = useFinance();
@@ -251,6 +429,8 @@ export function SimulationChart() {
 
   return (
     <View style={styles.root}>
+      {/* Tree of Thought — when totResult is passed, render the ToT panel first */}
+      {totResult ? <ToTPanel totResult={totResult} /> : null}
       {/* Resumo */}
       <Animated.View entering={FadeInDown.delay(50)} style={styles.summaryCard}>
         <Text style={styles.summaryTitle}>🔮 Projeção de 90 dias</Text>

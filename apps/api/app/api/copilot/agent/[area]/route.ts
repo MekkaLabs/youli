@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeAgent, UserContext } from '@/services/agents/agent-executor';
 import { LifeArea } from '@/services/agents/agent-definitions';
+import { applyOutputGuardrails } from '@/services/agents/guardrails';
 
 const VALID_AREAS: LifeArea[] = [
   'dashboard', 'tarefas', 'habitos', 'metas', 'financeiro',
@@ -42,8 +43,9 @@ export async function POST(
     }
 
     const response = await executeAgent(area, message, context, orchestratorConfig);
+    const safeResponse = applyOutputGuardrails(area, response);
 
-    return NextResponse.json(response);
+    return NextResponse.json(safeResponse);
   } catch (err) {
     console.error('[/api/copilot/agent] Error:', err);
     return NextResponse.json(

@@ -7,6 +7,7 @@ import { ProgressRing } from '../../src/atoms/ProgressRing';
 import { Badge } from '../../src/atoms/Badge';
 import { colors, fontWeight, fontSize, radii, spacing, shadows } from '../../src/theme/tokens';
 import { api } from '../../src/services/api';
+import { useProfile } from '../../src/store';
 
 interface FocusData {
   dayFocus: string;
@@ -22,11 +23,52 @@ const energyEmoji = { low: '😴', medium: '🔋', high: '⚡' } as const;
 const energyLabel = { low: 'Baixa', medium: 'Média', high: 'Alta' } as const;
 type EnergyKey = keyof typeof energyEmoji;
 
+const POMODORO_WORK = 25 * 60;
+const POMODORO_BREAK = 5 * 60;
+
 export default function DailyFocus() {
   const [data, setData] = useState<FocusData | null>(null);
   const [loading, setLoading] = useState(true);
   const [greeting, setGreeting] = useState('');
   const insets = useSafeAreaInsets();
+  const { profile } = useProfile();
+  const [pomodoroSecs, setPomodoroSecs] = useState(POMODORO_WORK);
+  const [pomodoroActive, setPomodoroActive] = useState(false);
+  const [pomodoroMode, setPomodoroMode] = useState<'work' | 'break'>('work');
+  const timerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (pomodoroActive) {
+      timerRef.current = setInterval(() => {
+        setPomodoroSecs(s => {
+          if (s <= 1) {
+            clearInterval(timerRef.current!);
+            setPomodoroActive(false);
+            const next = pomodoroMode === 'work' ? 'break' : 'work';
+            setPomodoroMode(next);
+            setPomodoroSecs(next === 'work' ? POMODORO_WORK : POMODORO_BREAK);
+            return next === 'work' ? POMODORO_WORK : POMODORO_BREAK;
+          }
+          return s - 1;
+        });
+      }, 1000);
+    } else {
+      clearInterval(timerRef.current!);
+    }
+    return () => clearInterval(timerRef.current!);
+  }, [pomodoroActive, pomodoroMode]);
+
+  function pomodoroReset() {
+    setPomodoroActive(false);
+    setPomodoroMode('work');
+    setPomodoroSecs(POMODORO_WORK);
+  }
+
+  function pomodoroMinSec() {
+    const m = Math.floor(pomodoroSecs / 60).toString().padStart(2, '0');
+    const s = (pomodoroSecs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  }
 
   useEffect(() => {
     const h = new Date().getHours();
@@ -71,13 +113,13 @@ export default function DailyFocus() {
       showsVerticalScrollIndicator={false}
     >
       {/* Header */}
-      <Animated.View entering={FadeInUp.springify()} style={styles.header}>
-        <Text style={styles.greeting}>{greeting}, Gustavo 👋</Text>
+      <Animated.View entering={FadeInUp.springify().damping(24).stiffness(220).mass(0.9)} style={styles.header}>
+        <Text style={styles.greeting}>{greeting}, {profile.name} 👋</Text>
         <Text style={styles.date}>{new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
       </Animated.View>
 
       {/* Hero card — foco do dia */}
-      <Animated.View entering={FadeInDown.delay(80).springify()} style={[styles.heroCard, shadows.lg]}>
+      <Animated.View entering={FadeInDown.delay(80).springify().damping(24).stiffness(220).mass(0.9)} style={[styles.heroCard, shadows.lg]}>
         <View style={styles.heroTop}>
           <View style={styles.heroText}>
             <Text style={styles.heroLabel}>FOCO DO DIA</Text>
@@ -92,9 +134,29 @@ export default function DailyFocus() {
         </View>
       </Animated.View>
 
+      {/* Pomodoro Timer */}
+      <Animated.View entering={FadeInDown.delay(120).springify().damping(24).stiffness(220).mass(0.9)} style={styles.pomodoroCard}>
+        <View style={styles.pomodoroHeader}>
+          <Text style={styles.pomodoroMode}>{pomodoroMode === 'work' ? '⚡ Foco profundo' : '☕ Pausa'}</Text>
+          <TouchableOpacity onPress={pomodoroReset}>
+            <Text style={styles.pomodoroReset}>↺</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.pomodoroTime}>{pomodoroMinSec()}</Text>
+        <View style={styles.pomodoroActions}>
+          <TouchableOpacity
+            style={[styles.pomodoroBtn, pomodoroActive && styles.pomodoroBtnActive]}
+            onPress={() => setPomodoroActive(a => !a)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.pomodoroBtnText}>{pomodoroActive ? '⏸ Pausar' : '▶ Iniciar'}</Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+
       {/* Top 3 tarefas */}
       {(data?.topTasks?.length ?? 0) > 0 && (
-        <Animated.View entering={FadeInDown.delay(160).springify()} style={[styles.section, shadows.sm]}>
+        <Animated.View entering={FadeInDown.delay(160).springify().damping(24).stiffness(220).mass(0.9)} style={[styles.section, shadows.sm]}>
           <Text style={styles.sectionTitle}>🎯 Execute agora</Text>
           {data!.topTasks.map((task, i) => (
             <View key={task.id} style={styles.taskRow}>
@@ -110,7 +172,7 @@ export default function DailyFocus() {
 
       {/* Hábitos do dia */}
       {(data?.habits?.length ?? 0) > 0 && (
-        <Animated.View entering={FadeInDown.delay(240).springify()} style={[styles.section, shadows.sm]}>
+        <Animated.View entering={FadeInDown.delay(240).springify().damping(24).stiffness(220).mass(0.9)} style={[styles.section, shadows.sm]}>
           <Text style={styles.sectionTitle}>🔥 Ritual de hoje</Text>
           <View style={styles.habitsGrid}>
             {data!.habits.map(h => (
@@ -125,7 +187,7 @@ export default function DailyFocus() {
 
       {/* Próximo evento */}
       {data?.nextEvent && (
-        <Animated.View entering={FadeInDown.delay(320).springify()} style={[styles.eventCard, shadows.sm]}>
+        <Animated.View entering={FadeInDown.delay(320).springify().damping(24).stiffness(220).mass(0.9)} style={[styles.eventCard, shadows.sm]}>
           <Text style={styles.eventIcon}>📅</Text>
           <View style={styles.eventBody}>
             <Text style={styles.eventTitle}>{data.nextEvent.title}</Text>
@@ -139,7 +201,7 @@ export default function DailyFocus() {
 
       {/* Insight do dia */}
       {data?.claudeInsight && (
-        <Animated.View entering={FadeInDown.delay(400).springify()} style={[styles.insightCard, shadows.sm]}>
+        <Animated.View entering={FadeInDown.delay(400).springify().damping(24).stiffness(220).mass(0.9)} style={[styles.insightCard, shadows.sm]}>
           <Text style={styles.insightIcon}>💡</Text>
           <Text style={styles.insightText}>{data.claudeInsight}</Text>
         </Animated.View>
@@ -153,6 +215,16 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, paddingBottom: 120, gap: spacing.md },
   loading: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   loadingText: { color: colors.muted, fontSize: fontSize.base },
+
+  pomodoroCard: { backgroundColor: '#0D1117', borderRadius: radii.xl, padding: spacing.xl, gap: spacing.sm, borderWidth: 1, borderColor: '#1F2937', alignItems: 'center' },
+  pomodoroHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
+  pomodoroMode: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: '#A78BFA', textTransform: 'uppercase', letterSpacing: 0.5 },
+  pomodoroReset: { fontSize: 20, color: '#6B7280' },
+  pomodoroTime: { fontSize: 56, fontWeight: fontWeight.black, color: '#F9FAFB', letterSpacing: -2, fontVariant: ['tabular-nums'] },
+  pomodoroActions: { flexDirection: 'row', gap: spacing.sm },
+  pomodoroBtn: { backgroundColor: '#7C3AED', borderRadius: radii.md, paddingHorizontal: 32, paddingVertical: 12 },
+  pomodoroBtnActive: { backgroundColor: '#6D28D9' },
+  pomodoroBtnText: { color: '#fff', fontSize: fontSize.base, fontWeight: fontWeight.bold },
 
   header: { marginBottom: spacing.sm },
   greeting: { fontSize: fontSize.xxl, fontWeight: fontWeight.black, color: colors.text },

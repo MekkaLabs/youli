@@ -192,7 +192,7 @@ export function WeeklyReview({ visible, onClose }: WeeklyReviewProps) {
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
       <Animated.View entering={FadeIn.duration(200)} style={styles.overlay}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.kav}>
-          <Animated.View entering={SlideInDown.springify()} style={styles.sheet}>
+          <Animated.View entering={SlideInDown.springify().damping(24).stiffness(220).mass(0.9)} style={styles.sheet}>
             {/* Header */}
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>📋 Review Semanal</Text>

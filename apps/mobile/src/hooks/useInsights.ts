@@ -9,7 +9,7 @@ import { useGoals } from './useGoals';
 import { useFinance } from './useFinance';
 import { useLifePatterns } from './useLifePatterns';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3002';
 const CACHE_KEY = '@youli:insights_cache';
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
 

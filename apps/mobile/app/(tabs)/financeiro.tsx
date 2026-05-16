@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FullScrollLayout } from '../../src/templates/FullScrollLayout';
 import { FinanceGrid } from '../../src/organisms/FinanceGrid';
 import { AgentBadge } from '../../src/atoms/AgentBadge';
+import { useAgentAction } from '../../src/hooks/useAgentAction';
 import { ConnectedBankCard, AvailableBankCard } from '../../src/molecules/BankConnectionCard';
 import { useOpenBanking } from '../../src/hooks/useOpenBanking';
 
@@ -22,6 +23,7 @@ function money(v: number) {
 
 export default function FinanceiroScreen() {
   const insets = useSafeAreaInsets();
+  const onAgentPress = useAgentAction('financeiro', ADAM.name);
   const [tab, setTab] = useState<'lancamentos' | 'contas'>('lancamentos');
   const { connections, availableBanks, connecting, totalBalance, connect, disconnect, isConnected } = useOpenBanking();
 
@@ -33,7 +35,7 @@ export default function FinanceiroScreen() {
       title="Financeiro"
       subtitle="Construa riqueza, não só renda"
       paddingBottom={insets.bottom + 90}
-      rightAction={<AgentBadge {...ADAM} compact onPress={() => {}} />}
+      rightAction={<AgentBadge {...ADAM} compact onPress={onAgentPress} />}
     >
       {/* Tabs principais */}
       <View style={styles.tabs}>

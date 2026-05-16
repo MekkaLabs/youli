@@ -49,7 +49,7 @@ export function TaskPipeline({ tasks, onTaskPress, onTaskComplete }: TaskPipelin
       {/* Tasks */}
       <View style={styles.list}>
         {filtered.length === 0 ? (
-          <Animated.View entering={FadeInDown.springify()} style={styles.empty}>
+          <Animated.View entering={FadeInDown.springify().damping(24).stiffness(220).mass(0.9)} style={styles.empty}>
             <Text style={styles.emptyText}>Nenhuma tarefa aqui 🎯</Text>
           </Animated.View>
         ) : (

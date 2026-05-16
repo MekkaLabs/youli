@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listHabits, createHabit, checkinHabit } from '../../../../src/repositories/supabase/habits';
+import { listHabits, createHabit, checkinHabit, deleteHabit } from '../../../../src/repositories/supabase/habits';
 import { interpretHabit } from '../../../../src/services/habit-llm';
 import { readDb } from '../../../../src/repositories/local-db';
 
@@ -25,4 +25,12 @@ export async function PATCH(req: Request) {
     return NextResponse.json(habit);
   }
   return NextResponse.json({ error: 'ação desconhecida' }, { status: 400 });
+}
+
+export async function DELETE(req: Request) {
+  const body = await req.json().catch(() => ({}));
+  const id = typeof body?.id === 'string' ? body.id : '';
+  if (!id) return NextResponse.json({ error: 'id obrigatório' }, { status: 400 });
+  await deleteHabit(id);
+  return NextResponse.json({ ok: true });
 }

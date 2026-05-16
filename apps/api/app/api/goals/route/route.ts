@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listGoals, createGoal, updateGoalProgress } from '../../../../src/repositories/supabase/goals';
+import { listGoals, createGoal, updateGoalProgress, deleteGoal } from '../../../../src/repositories/supabase/goals';
 
 export async function GET() {
   const goals = await listGoals();
@@ -17,4 +17,12 @@ export async function PATCH(req: Request) {
   if (!body.id) return NextResponse.json({ error: 'id obrigatório' }, { status: 400 });
   const goal = await updateGoalProgress(body.id, body.progress ?? 0);
   return NextResponse.json(goal);
+}
+
+export async function DELETE(req: Request) {
+  const body = await req.json().catch(() => ({}));
+  const id = typeof body?.id === 'string' ? body.id : '';
+  if (!id) return NextResponse.json({ error: 'id obrigatório' }, { status: 400 });
+  await deleteGoal(id);
+  return NextResponse.json({ ok: true });
 }

@@ -45,7 +45,7 @@ interface ChatMessage {
   timestamp: Date;
 }
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3002';
 
 export function useOrchestrator(userContext?: object) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -123,7 +123,10 @@ export function useOrchestrator(userContext?: object) {
           body: JSON.stringify(body),
         });
 
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(typeof data?.error === 'string' ? data.error : 'Erro no orquestrador');
+        }
 
         // Normaliza resposta (pode ser OrchestratorResponse ou AgentResponse direta)
         let orchestratorResponse: OrchestratorResponse;
@@ -152,10 +155,11 @@ export function useOrchestrator(userContext?: object) {
 
         setMessages((prev) => [...prev, assistantMsg]);
       } catch (err) {
+        const errMsg = err instanceof Error ? err.message : '';
         const errorMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          text: `${orchestratorConfig.emoji} ${orchestratorConfig.name} está offline. Verifique sua conexão.`,
+          text: `${orchestratorConfig.emoji} ${orchestratorConfig.name} indisponível. ${errMsg || 'Verifique sua conexão.'}`,
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, errorMsg]);

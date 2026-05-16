@@ -50,7 +50,7 @@ export function SimulationCard({
 
   return (
     <Animated.View
-      entering={FadeInDown.delay(index * 80).springify()}
+      entering={FadeInDown.delay(index * 80).springify().damping(24).stiffness(220).mass(0.9)}
       style={[styles.card, { borderLeftColor: agent.color, borderLeftWidth: 3 }]}
     >
       {/* Header */}

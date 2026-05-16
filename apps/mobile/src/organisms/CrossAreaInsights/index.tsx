@@ -42,7 +42,7 @@ function PatternCard({ pattern, index, onAction }: PatternCardProps) {
 
   return (
     <Animated.View
-      entering={FadeInDown.delay(index * 70).springify()}
+      entering={FadeInDown.delay(index * 70).springify().damping(24).stiffness(220).mass(0.9)}
       style={[styles.card, { borderLeftColor: pattern.color, backgroundColor: SEVERITY_BG[pattern.severity] }]}
     >
       <TouchableOpacity onPress={() => setExpanded(e => !e)} activeOpacity={0.8}>

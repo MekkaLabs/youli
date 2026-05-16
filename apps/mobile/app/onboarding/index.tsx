@@ -75,7 +75,7 @@ export default function OnboardingScreen() {
 
   const steps = [
     // STEP 0 — Boas-vindas
-    <Animated.View key="s0" entering={FadeInRight.springify()} style={styles.stepWrap}>
+    <Animated.View key="s0" entering={FadeInRight.springify().damping(24).stiffness(220).mass(0.9)} style={styles.stepWrap}>
       <Text style={styles.stepEmoji}>👋</Text>
       <Text style={styles.stepTitle}>Olá! Bem-vindo ao{'\n'}Youli.</Text>
       <Text style={styles.stepSub}>
@@ -113,7 +113,7 @@ export default function OnboardingScreen() {
     </Animated.View>,
 
     // STEP 1 — Áreas de vida
-    <Animated.View key="s1" entering={FadeInRight.springify()} style={styles.stepWrap}>
+    <Animated.View key="s1" entering={FadeInRight.springify().damping(24).stiffness(220).mass(0.9)} style={styles.stepWrap}>
       <Text style={styles.stepEmoji}>🎯</Text>
       <Text style={styles.stepTitle}>Onde você quer{'\n'}focar agora?</Text>
       <Text style={styles.stepSub}>Escolha até 3 áreas prioritárias. Você pode mudar isso depois.</Text>
@@ -139,7 +139,7 @@ export default function OnboardingScreen() {
     </Animated.View>,
 
     // STEP 2 — Primeira meta e hábito
-    <Animated.View key="s2" entering={FadeInRight.springify()} style={styles.stepWrap}>
+    <Animated.View key="s2" entering={FadeInRight.springify().damping(24).stiffness(220).mass(0.9)} style={styles.stepWrap}>
       <Text style={styles.stepEmoji}>🚀</Text>
       <Text style={styles.stepTitle}>Vamos começar{'\n'}com pequenos passos</Text>
       <Text style={styles.stepSub}>Uma meta e um hábito são suficientes para começar com força.</Text>

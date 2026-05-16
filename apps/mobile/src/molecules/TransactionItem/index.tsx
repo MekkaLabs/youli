@@ -27,7 +27,7 @@ export function TransactionItem({ tx, index = 0 }: TransactionItemProps) {
   const isIncome = tx.type === 'income';
   return (
     <Animated.View
-      entering={FadeInRight.delay(index * 40).springify().damping(16)}
+      entering={FadeInRight.delay(index * 40).springify().damping(24).stiffness(220).mass(0.9)}
       style={styles.row}
     >
       {/* Emoji avatar */}

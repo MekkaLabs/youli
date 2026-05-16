@@ -116,8 +116,8 @@ export function NotificationCenter({ visible, onClose }: NotificationCenterProps
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
       <Animated.View entering={FadeIn.duration(200)} exiting={FadeIn.duration(100)} style={styles.overlay}>
         <Animated.View
-          entering={SlideInDown.springify().damping(18)}
-          exiting={SlideOutDown.springify().damping(18)}
+          entering={SlideInDown.springify().damping(24).stiffness(220).mass(0.9)}
+          exiting={SlideOutDown.springify().damping(24).stiffness(220).mass(0.9)}
           style={styles.sheet}
         >
           <View style={styles.handle} />

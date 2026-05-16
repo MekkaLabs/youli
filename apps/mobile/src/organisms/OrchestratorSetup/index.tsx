@@ -119,7 +119,7 @@ export function OrchestratorSetup({
       </Animated.View>
 
       {/* Seção: escolher preset */}
-      <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.section}>
+      <Animated.View entering={FadeInDown.delay(100).springify().damping(24).stiffness(220).mass(0.9)} style={styles.section}>
         <Text style={styles.sectionTitle}>Escolha um nome</Text>
         <View style={styles.presetsGrid}>
           {PRESETS.map((preset, i) => (
@@ -150,7 +150,7 @@ export function OrchestratorSetup({
       </Animated.View>
 
       {/* Input personalizado */}
-      <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.section}>
+      <Animated.View entering={FadeInDown.delay(200).springify().damping(24).stiffness(220).mass(0.9)} style={styles.section}>
         <Text style={styles.sectionTitle}>Ou crie seu próprio nome</Text>
         <TextInput
           style={styles.input}
@@ -167,7 +167,7 @@ export function OrchestratorSetup({
       </Animated.View>
 
       {/* Salvar */}
-      <Animated.View entering={FadeInDown.delay(300).springify()} style={styles.section}>
+      <Animated.View entering={FadeInDown.delay(300).springify().damping(24).stiffness(220).mass(0.9)} style={styles.section}>
         <Button
           label={`Salvar — ${displayEmoji} ${displayName}`}
           variant="primary"
@@ -178,7 +178,7 @@ export function OrchestratorSetup({
       </Animated.View>
 
       {/* Seção: agentes especializados */}
-      <Animated.View entering={FadeInDown.delay(400).springify()} style={styles.section}>
+      <Animated.View entering={FadeInDown.delay(400).springify().damping(24).stiffness(220).mass(0.9)} style={styles.section}>
         <Text style={styles.sectionTitle}>Seus Agentes Especializados</Text>
         <Text style={styles.sectionSub}>
           Cada área da sua vida tem um consultor histórico com expertise real
@@ -187,7 +187,7 @@ export function OrchestratorSetup({
           {AGENTS.map((agent, i) => (
             <Animated.View
               key={agent.area}
-              entering={FadeInDown.delay(450 + i * 50).springify()}
+              entering={FadeInDown.delay(450 + i * 50).springify().damping(24).stiffness(220).mass(0.9)}
             >
               <TouchableOpacity
                 style={styles.agentRow}

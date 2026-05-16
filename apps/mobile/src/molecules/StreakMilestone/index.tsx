@@ -99,7 +99,7 @@ export function StreakMilestone({
 
   return (
     <Animated.View
-      entering={FadeInDown.springify().damping(14)}
+      entering={FadeInDown.springify().damping(24).stiffness(220).mass(0.9)}
       exiting={FadeOutUp.duration(300)}
       style={styles.overlay}
     >

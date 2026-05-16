@@ -15,7 +15,7 @@ import { useHabits } from './useHabits';
 import { useGoals } from './useGoals';
 import { useFinance } from './useFinance';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3002';
 const STORAGE_KEY = '@youli:last_notifications';
 const HISTORY_KEY = '@youli:notification_history';
 

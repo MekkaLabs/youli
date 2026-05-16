@@ -7,10 +7,11 @@ import {
   Modal, View, Text, TextInput, StyleSheet, TouchableOpacity,
   FlatList, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { useTasks } from '../../hooks/useTasks';
 import { useHabits } from '../../hooks/useHabits';
 import { useGoals } from '../../hooks/useGoals';
+import { motionEnter } from '../../theme/motion';
 
 type ResultType = 'task' | 'habit' | 'goal';
 
@@ -106,7 +107,7 @@ export function GlobalSearch({ visible, onClose }: GlobalSearchProps) {
     <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose}>
       <Animated.View entering={FadeIn.duration(150)} style={styles.overlay}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.kav}>
-          <Animated.View entering={SlideInDown.springify()} style={styles.sheet}>
+          <Animated.View entering={motionEnter.sheetUp()} style={styles.sheet}>
             {/* Search input */}
             <View style={styles.searchRow}>
               <Text style={styles.searchIcon}>🔍</Text>

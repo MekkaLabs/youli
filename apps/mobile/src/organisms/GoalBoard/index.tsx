@@ -15,9 +15,10 @@ import {
   ScrollView,
   Modal,
   TextInput,
+  Alert,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { useGoals } from '../../hooks/useGoals';
+import { useGoals, type GoalData } from '../../hooks/useGoals';
 import { GoalCard } from '../../molecules/GoalCard';
 
 type FilterType = 'all' | 'active' | 'completed' | 'at_risk';
@@ -39,9 +40,10 @@ const CATEGORY_EMOJIS: Record<string, string> = {
 };
 
 export function GoalBoard() {
-  const { goals, stats, updateProgress, addGoal, goalStatus, progressPercent, daysUntil } = useGoals();
+  const { goals, stats, updateProgress, addGoal, restoreGoal, deleteGoal, goalStatus, progressPercent, daysUntil, syncing, syncError, lastSyncAt, refresh } = useGoals();
   const [filter, setFilter] = useState<FilterType>('all');
   const [showAdd, setShowAdd] = useState(false);
+  const [undoGoal, setUndoGoal] = useState<GoalData | null>(null);
 
   // Form
   const [newTitle, setNewTitle] = useState('');
@@ -82,8 +84,42 @@ export function GoalBoard() {
     setNewTitle(''); setNewTarget(''); setShowAdd(false);
   };
 
+  const confirmDelete = (goalId: string, title: string) => {
+    Alert.alert(
+      'Apagar meta',
+      `Deseja apagar a meta "${title}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Apagar',
+          style: 'destructive',
+          onPress: () => {
+            const removed = goals.find((g) => g.id === goalId);
+            deleteGoal(goalId);
+            if (removed) {
+              setUndoGoal(removed);
+              setTimeout(() => setUndoGoal((current) => (current?.id === goalId ? null : current)), 6000);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <View style={styles.root}>
+      <View style={styles.syncBar}>
+        <Text style={styles.syncText}>
+          {syncing
+            ? 'Sincronizando metas...'
+            : syncError
+              ? 'Modo offline (cache local)'
+              : `Sincronizado ${lastSyncAt ? new Date(lastSyncAt).toLocaleTimeString('pt-BR') : 'agora'}`}
+        </Text>
+        <TouchableOpacity onPress={refresh}>
+          <Text style={styles.syncAction}>Sincronizar</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* ── Stats header ──────────────────────────── */}
       <Animated.View entering={FadeIn.duration(400)} style={styles.statsCard}>
@@ -153,16 +189,36 @@ export function GoalBoard() {
 
       {/* ── Lista de metas ────────────────────────── */}
       <View style={styles.list}>
+        {undoGoal && (
+          <View style={styles.undoBar}>
+            <Text style={styles.undoText}>Meta apagada.</Text>
+            <TouchableOpacity
+              onPress={() => {
+                restoreGoal(undoGoal);
+                setUndoGoal(null);
+              }}
+            >
+              <Text style={styles.undoAction}>Desfazer</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         {filtered.map((goal, i) => (
-          <GoalCard
-            key={goal.id}
-            goal={goal}
-            index={i}
-            status={goalStatus(goal)}
-            progressPercent={progressPercent(goal.currentValue, goal.targetValue)}
-            daysUntil={daysUntil(goal.deadline)}
-            onUpdateProgress={(v) => updateProgress(goal.id, v)}
-          />
+          <View key={goal.id} style={styles.goalItemWrap}>
+            <GoalCard
+              goal={goal}
+              index={i}
+              status={goalStatus(goal)}
+              progressPercent={progressPercent(goal.currentValue, goal.targetValue)}
+              daysUntil={daysUntil(goal.deadline)}
+              onUpdateProgress={(v) => updateProgress(goal.id, v)}
+            />
+            <TouchableOpacity
+              style={styles.deleteGoalBtn}
+              onPress={() => confirmDelete(goal.id, goal.title)}
+            >
+              <Text style={styles.deleteGoalText}>Apagar meta</Text>
+            </TouchableOpacity>
+          </View>
         ))}
 
         <Animated.View entering={FadeInDown.delay(filtered.length * 80 + 100)}>
@@ -221,6 +277,9 @@ export function GoalBoard() {
 
 const styles = StyleSheet.create({
   root: { gap: 16 },
+  syncBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0B1220', borderWidth: 1, borderColor: '#1F2937', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
+  syncText: { color: '#9CA3AF', fontSize: 11, fontWeight: '600' },
+  syncAction: { color: '#60A5FA', fontSize: 11, fontWeight: '800' },
   statsCard: { backgroundColor: '#111827', borderRadius: 16, padding: 18, borderWidth: 1, borderColor: '#1F2937', gap: 14 },
   avgBlock: { alignItems: 'center', gap: 4 },
   avgNum: { fontSize: 48, fontWeight: '900', lineHeight: 52 },
@@ -239,6 +298,12 @@ const styles = StyleSheet.create({
   filterText: { fontSize: 13, color: '#9CA3AF', fontWeight: '600' },
   filterTextActive: { color: '#FFF' },
   list: { gap: 12 },
+  goalItemWrap: { gap: 8 },
+  deleteGoalBtn: { alignSelf: 'flex-end', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#3F1D1D', backgroundColor: '#1A1111' },
+  deleteGoalText: { fontSize: 12, fontWeight: '700', color: '#FCA5A5' },
+  undoBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: '#2A3A58', backgroundColor: '#0F172A' },
+  undoText: { fontSize: 12, color: '#CBD5E1', fontWeight: '600' },
+  undoAction: { fontSize: 12, color: '#60A5FA', fontWeight: '800' },
   addBtn: { borderRadius: 12, borderWidth: 1.5, borderColor: '#374151', borderStyle: 'dashed', padding: 14, alignItems: 'center' },
   addBtnText: { color: '#6B7280', fontSize: 14, fontWeight: '600' },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },

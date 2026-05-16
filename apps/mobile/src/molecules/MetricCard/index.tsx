@@ -16,7 +16,7 @@ interface MetricCardProps {
 export function MetricCard({ label, value, sub, tone = colors.card, textColor = colors.text, index = 0, style }: MetricCardProps) {
   return (
     <Animated.View
-      entering={FadeInDown.delay(index * 80).springify()}
+      entering={FadeInDown.delay(index * 80).springify().damping(24).stiffness(220).mass(0.9)}
       style={[styles.card, { backgroundColor: tone }, shadows.md, style]}
     >
       <Text style={[styles.label, { color: textColor === colors.text ? colors.muted : 'rgba(255,255,255,0.75)' }]}>{label}</Text>

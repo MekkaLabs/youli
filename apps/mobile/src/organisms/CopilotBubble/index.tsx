@@ -108,7 +108,7 @@ export function CopilotBubble({ userContext }: CopilotBubbleProps) {
 
         {/* Sheet */}
         <Animated.View
-          entering={SlideInDown.springify().damping(18).mass(0.9)}
+          entering={SlideInDown.springify().damping(24).stiffness(220).mass(0.9)}
           style={[styles.sheet, { paddingBottom: insets.bottom }]}
         >
           <View style={styles.handle} />

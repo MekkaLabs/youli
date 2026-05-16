@@ -10,6 +10,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FullScrollLayout } from '../../src/templates/FullScrollLayout';
 import { AgentBadge } from '../../src/atoms/AgentBadge';
+import { useAgentAction } from '../../src/hooks/useAgentAction';
 import { EventCard, FocusBlockCard } from '../../src/molecules/CalendarBlock';
 import { useCalendar } from '../../src/hooks/useCalendar';
 
@@ -23,6 +24,7 @@ const TESLA = {
 
 export default function CalendarioScreen() {
   const insets = useSafeAreaInsets();
+  const onAgentPress = useAgentAction('calendario', TESLA.name);
   const {
     events,
     focusBlocks,
@@ -50,7 +52,7 @@ export default function CalendarioScreen() {
       subtitle={todayLabel}
       paddingBottom={insets.bottom + 90}
       onRefresh={refresh}
-      rightAction={<AgentBadge {...TESLA} compact onPress={() => {}} />}
+      rightAction={<AgentBadge {...TESLA} compact onPress={onAgentPress} />}
     >
       {/* Tesla insight */}
       <Animated.View entering={FadeInDown.delay(80)} style={styles.teslaCard}>

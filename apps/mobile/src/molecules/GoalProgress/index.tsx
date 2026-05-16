@@ -12,7 +12,7 @@ export function GoalProgress({ goal, index = 0 }: GoalProgressProps) {
   const barColor = isNear ? colors.success : pct >= 40 ? colors.info : colors.warning;
 
   return (
-    <Animated.View entering={FadeInDown.delay(index * 70).springify()} style={[styles.card, shadows.sm]}>
+    <Animated.View entering={FadeInDown.delay(index * 70).springify().damping(24).stiffness(220).mass(0.9)} style={[styles.card, shadows.sm]}>
       <View style={styles.row}>
         <Text style={styles.title} numberOfLines={2}>{goal.title}</Text>
         <Text style={[styles.pct, { color: barColor }]}>{pct}%</Text>

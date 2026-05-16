@@ -16,14 +16,9 @@ import {
   LayoutAnimation,
   TextInput,
 } from 'react-native';
-import Animated, {
-  FadeInDown,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import type { GoalData } from '../../hooks/useGoals';
+import { motionEnter, iosTiming } from '../../theme/motion';
 
 interface GoalCardProps {
   goal: GoalData;
@@ -77,7 +72,12 @@ export function GoalCard({ goal, index = 0, status, progressPercent, daysUntil, 
   const sparkRange = sparkMax - sparkMin || 1;
 
   const handleExpand = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    LayoutAnimation.configureNext({
+      duration: iosTiming.normal,
+      update: { type: LayoutAnimation.Types.easeInEaseOut },
+      create: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+      delete: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+    });
     setExpanded(e => !e);
   };
 
@@ -90,7 +90,7 @@ export function GoalCard({ goal, index = 0, status, progressPercent, daysUntil, 
   };
 
   return (
-    <Animated.View entering={FadeInDown.delay(index * 80).springify().damping(14)}>
+    <Animated.View entering={motionEnter.cardDown(index * 45)}>
       <View style={[styles.card, status === 'at_risk' && styles.cardAtRisk, status === 'completed' && styles.cardCompleted]}>
 
         {/* ── Cabeçalho ─────────────────────────────── */}

@@ -18,7 +18,6 @@ import {
   UIManager,
 } from 'react-native';
 import Animated, {
-  FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -26,6 +25,7 @@ import Animated, {
 import { CheckButton } from '../../atoms/CheckButton';
 import { StreakCalendar } from '../../atoms/StreakCalendar';
 import type { HabitData } from '../../hooks/useHabits';
+import { iosSpring, motionEnter } from '../../theme/motion';
 
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -64,8 +64,8 @@ export function HabitCard({ habit, index = 0, isCheckedToday, onToggle }: HabitC
   const cardScale = useSharedValue(1);
 
   const handleToggle = () => {
-    cardScale.value = withSpring(0.97, { damping: 8 }, () => {
-      cardScale.value = withSpring(1);
+    cardScale.value = withSpring(0.985, iosSpring.pressIn, () => {
+      cardScale.value = withSpring(1, iosSpring.pressOut);
     });
     onToggle();
   };
@@ -89,7 +89,7 @@ export function HabitCard({ habit, index = 0, isCheckedToday, onToggle }: HabitC
 
   return (
     <Animated.View
-      entering={FadeInDown.delay(index * 70).springify().damping(14)}
+      entering={motionEnter.cardDown(index * 45)}
       style={cardStyle}
     >
       <View

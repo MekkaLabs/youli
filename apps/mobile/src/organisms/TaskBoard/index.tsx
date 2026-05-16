@@ -7,6 +7,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   Modal, ScrollView, KeyboardAvoidingView, Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import { useTasks, LocalTask, TaskStatus, TaskPriority } from '../../hooks/useTasks';
@@ -52,7 +53,7 @@ function NewTaskForm({ visible, onClose, onCreate }: NewTaskFormProps) {
         style={styles.modalOverlay}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Animated.View entering={FadeInDown.springify()} style={styles.form}>
+        <Animated.View entering={FadeInDown.springify().damping(24).stiffness(220).mass(0.9)} style={styles.form}>
           <View style={styles.formHeader}>
             <Text style={styles.formTitle}>Nova Tarefa</Text>
             <TouchableOpacity onPress={onClose}><Text style={styles.closeBtn}>✕</Text></TouchableOpacity>
@@ -186,21 +187,73 @@ function KanbanColumn({ status, tasks, onMove, onDelete }: {
 }
 
 // ── TaskBoard principal ───────────────────────────────────────────────────────
-export function TaskBoard() {
-  const { tasks, counts, createTask, moveTask, deleteTask } = useTasks();
+export function TaskBoard({ filter: periodFilter }: { filter?: 'hoje' | 'semana' | 'backlog' }) {
+  const { tasks, counts, createTask, restoreTask, moveTask, deleteTask, syncing, syncError, lastSyncAt, refresh } = useTasks();
   const [showForm, setShowForm] = useState(false);
   const [view, setView] = useState<'kanban' | 'list'>('list');
   const [filter, setFilter] = useState<TaskStatus | 'all'>('all');
+  const [undoTask, setUndoTask] = useState<LocalTask | null>(null);
+
+  // Filtra por período se especificado externamente
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfWeek = new Date(startOfToday);
+  startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
+
+  const periodFiltered = periodFilter
+    ? tasks.filter(t => {
+        if (periodFilter === 'hoje') {
+          const created = new Date(t.createdAt ?? 0);
+          return created >= startOfToday || t.status === 'doing';
+        }
+        if (periodFilter === 'semana') {
+          const created = new Date(t.createdAt ?? 0);
+          return created >= startOfWeek;
+        }
+        return t.status === 'todo'; // backlog
+      })
+    : tasks;
 
   const byStatus: Record<TaskStatus, LocalTask[]> = {
-    todo:  tasks.filter(t => t.status === 'todo'),
-    doing: tasks.filter(t => t.status === 'doing'),
-    done:  tasks.filter(t => t.status === 'done'),
+    todo:  periodFiltered.filter(t => t.status === 'todo'),
+    doing: periodFiltered.filter(t => t.status === 'doing'),
+    done:  periodFiltered.filter(t => t.status === 'done'),
   };
-  const filtered = filter === 'all' ? tasks : tasks.filter(t => t.status === filter);
+  const filtered = filter === 'all' ? periodFiltered : periodFiltered.filter(t => t.status === filter);
+  const handleDeleteTask = (task: LocalTask) => {
+    Alert.alert(
+      'Apagar tarefa',
+      `Deseja apagar "${task.title}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Apagar',
+          style: 'destructive',
+          onPress: () => {
+            deleteTask(task.id);
+            setUndoTask(task);
+            setTimeout(() => setUndoTask((current) => (current?.id === task.id ? null : current)), 6000);
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <View style={styles.wrap}>
+      <View style={styles.syncBar}>
+        <Text style={styles.syncText}>
+          {syncing
+            ? 'Sincronizando tarefas...'
+            : syncError
+              ? 'Modo offline (cache local)'
+              : `Sincronizado ${lastSyncAt ? new Date(lastSyncAt).toLocaleTimeString('pt-BR') : 'agora'}`}
+        </Text>
+        <TouchableOpacity onPress={refresh}>
+          <Text style={styles.syncAction}>Sincronizar</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.stats}>
@@ -245,8 +298,22 @@ export function TaskBoard() {
         </View>
       ) : (
         filtered.map((task, i) => (
-          <TaskCard key={task.id} task={task} onMove={moveTask} onDelete={deleteTask} index={i} />
+          <TaskCard key={task.id} task={task} onMove={moveTask} onDelete={() => handleDeleteTask(task)} index={i} />
         ))
+      )}
+
+      {undoTask && (
+        <View style={styles.undoBar}>
+          <Text style={styles.undoText}>Tarefa apagada.</Text>
+          <TouchableOpacity
+            onPress={() => {
+              restoreTask(undoTask);
+              setUndoTask(null);
+            }}
+          >
+            <Text style={styles.undoAction}>Desfazer</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       <NewTaskForm visible={showForm} onClose={() => setShowForm(false)} onCreate={createTask} />
@@ -256,6 +323,9 @@ export function TaskBoard() {
 
 const styles = StyleSheet.create({
   wrap: { gap: 12 },
+  syncBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0B1220', borderWidth: 1, borderColor: '#1F2937', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
+  syncText: { color: '#9CA3AF', fontSize: 11, fontWeight: '600' },
+  syncAction: { color: '#60A5FA', fontSize: 11, fontWeight: '800' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   stats: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   statNum: { fontSize: 20, fontWeight: '900', color: '#F9FAFB' },
@@ -286,6 +356,9 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, color: '#6B7280' },
   emptyAddBtn: { marginTop: 8, backgroundColor: '#D97706', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
   emptyAddBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  undoBar: { marginTop: 6, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: '#2A3A58', backgroundColor: '#0F172A' },
+  undoText: { fontSize: 12, color: '#CBD5E1', fontWeight: '600' },
+  undoAction: { fontSize: 12, color: '#60A5FA', fontWeight: '800' },
   // Kanban
   column: { gap: 8 },
   columnHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingBottom: 8, borderBottomWidth: 2 },

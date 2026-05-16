@@ -34,7 +34,7 @@ import { useHabits } from '../../hooks/useHabits';
 import { useGoals } from '../../hooks/useGoals';
 import { useFinance } from '../../hooks/useFinance';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3002';
 
 interface DigestSection {
   icon: string;
@@ -151,8 +151,8 @@ export function DailyDigest({ autoOpen = true, onClose }: DailyDigestProps) {
     <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose}>
       <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(200)} style={styles.overlay}>
         <Animated.View
-          entering={SlideInDown.springify().damping(16)}
-          exiting={SlideOutDown.springify().damping(16)}
+          entering={SlideInDown.springify().damping(24).stiffness(220).mass(0.9)}
+          exiting={SlideOutDown.springify().damping(24).stiffness(220).mass(0.9)}
           style={styles.sheet}
         >
           {/* Handle */}

@@ -17,6 +17,7 @@ import { DailyCheckIn, useDailyCheckIn } from '../../src/organisms/DailyCheckIn'
 import { GlobalSearch, SearchTrigger } from '../../src/organisms/GlobalSearch';
 import { ShareProgressButton } from '../../src/organisms/ShareCard';
 import { tokens } from '../../src/theme/tokens';
+import { useUI } from '../../src/store';
 
 const LEONARDO = {
   name: 'Leonardo',
@@ -26,7 +27,7 @@ const LEONARDO = {
   domain: 'Visão Sistêmica',
 };
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3002';
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
@@ -34,6 +35,7 @@ export default function DashboardScreen() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const { unreadCount } = useSmartNotifications();
+  const { openCopilot } = useUI();
   const { show: showCheckIn, dismiss: dismissCheckIn } = useDailyCheckIn();
   const [showSearch, setShowSearch] = useState(false);
 
@@ -84,7 +86,7 @@ export default function DashboardScreen() {
         }
       >
         <SearchTrigger onPress={() => setShowSearch(true)} />
-        <DashboardHero data={dashData} onOpenCopilot={() => {}} />
+        <DashboardHero data={dashData} onOpenCopilot={openCopilot} />
         <CrossAreaInsights />
         <ShareProgressButton compact />
       </FullScrollLayout>

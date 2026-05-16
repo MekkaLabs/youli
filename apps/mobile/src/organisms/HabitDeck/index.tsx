@@ -19,9 +19,10 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  Alert,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { useHabits } from '../../hooks/useHabits';
+import { useHabits, type HabitData } from '../../hooks/useHabits';
 import { HabitCard } from '../../molecules/HabitCard';
 import { StreakMilestone } from '../../molecules/StreakMilestone';
 
@@ -34,9 +35,10 @@ const EMOJI_OPTIONS = ['🧘', '📚', '🏃', '💧', '📋', '🙏', '💪', '
 const COLOR_OPTIONS = ['#059669', '#7C3AED', '#D97706', '#DC2626', '#0891B2', '#16A34A', '#6366F1', '#B45309', '#0EA5E9', '#EC4899'];
 
 export function HabitDeck() {
-  const { habits, stats, milestone, toggleToday, dismissMilestone, addHabit, isCompletedToday } = useHabits();
+  const { habits, stats, milestone, toggleToday, dismissMilestone, addHabit, restoreHabit, deleteHabit, isCompletedToday, syncing, syncError, lastSyncAt, refresh } = useHabits();
   const [filter, setFilter] = useState('Todos');
   const [showAdd, setShowAdd] = useState(false);
+  const [undoHabit, setUndoHabit] = useState<HabitData | null>(null);
 
   // Form de novo hábito
   const [newTitle, setNewTitle] = useState('');
@@ -66,8 +68,42 @@ export function HabitDeck() {
     ? Math.round((stats.completedToday / stats.total) * 100)
     : 0;
 
+  const confirmDelete = (habitId: string, title: string) => {
+    Alert.alert(
+      'Apagar hábito',
+      `Deseja apagar o hábito "${title}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Apagar',
+          style: 'destructive',
+          onPress: () => {
+            const removed = habits.find((h) => h.id === habitId);
+            deleteHabit(habitId);
+            if (removed) {
+              setUndoHabit(removed);
+              setTimeout(() => setUndoHabit((current) => (current?.id === habitId ? null : current)), 6000);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <View style={styles.root}>
+      <View style={styles.syncBar}>
+        <Text style={styles.syncText}>
+          {syncing
+            ? 'Sincronizando hábitos...'
+            : syncError
+              ? 'Modo offline (cache local)'
+              : `Sincronizado ${lastSyncAt ? new Date(lastSyncAt).toLocaleTimeString('pt-BR') : 'agora'}`}
+        </Text>
+        <TouchableOpacity onPress={refresh}>
+          <Text style={styles.syncAction}>Sincronizar</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* ── Header de stats ─────────────────────────────── */}
       <Animated.View entering={FadeIn.duration(400)} style={styles.statsCard}>
@@ -158,14 +194,34 @@ export function HabitDeck() {
 
       {/* ── Lista de hábitos ─────────────────────────────── */}
       <View style={styles.list}>
+        {undoHabit && (
+          <View style={styles.undoBar}>
+            <Text style={styles.undoText}>Hábito apagado.</Text>
+            <TouchableOpacity
+              onPress={() => {
+                restoreHabit(undoHabit);
+                setUndoHabit(null);
+              }}
+            >
+              <Text style={styles.undoAction}>Desfazer</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         {filteredHabits.map((habit, i) => (
-          <HabitCard
-            key={habit.id}
-            habit={habit}
-            index={i}
-            isCheckedToday={isCompletedToday(habit)}
-            onToggle={() => toggleToday(habit.id)}
-          />
+          <View key={habit.id} style={styles.habitItemWrap}>
+            <HabitCard
+              habit={habit}
+              index={i}
+              isCheckedToday={isCompletedToday(habit)}
+              onToggle={() => toggleToday(habit.id)}
+            />
+            <TouchableOpacity
+              style={styles.deleteHabitBtn}
+              onPress={() => confirmDelete(habit.id, habit.title)}
+            >
+              <Text style={styles.deleteHabitText}>Apagar hábito</Text>
+            </TouchableOpacity>
+          </View>
         ))}
 
         {/* Botão adicionar */}
@@ -253,6 +309,9 @@ export function HabitDeck() {
 
 const styles = StyleSheet.create({
   root: { gap: 16 },
+  syncBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0B1220', borderWidth: 1, borderColor: '#1F2937', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
+  syncText: { color: '#9CA3AF', fontSize: 11, fontWeight: '600' },
+  syncAction: { color: '#60A5FA', fontSize: 11, fontWeight: '800' },
   statsCard: {
     backgroundColor: '#111827', borderRadius: 16, padding: 18,
     borderWidth: 1, borderColor: '#1F2937', gap: 14,
@@ -280,6 +339,12 @@ const styles = StyleSheet.create({
   filterText: { fontSize: 13, color: '#9CA3AF', fontWeight: '600' },
   filterTextActive: { color: '#FFF' },
   list: { gap: 10 },
+  habitItemWrap: { gap: 8 },
+  deleteHabitBtn: { alignSelf: 'flex-end', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#3F1D1D', backgroundColor: '#1A1111' },
+  deleteHabitText: { fontSize: 12, fontWeight: '700', color: '#FCA5A5' },
+  undoBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: '#2A3A58', backgroundColor: '#0F172A' },
+  undoText: { fontSize: 12, color: '#CBD5E1', fontWeight: '600' },
+  undoAction: { fontSize: 12, color: '#60A5FA', fontWeight: '800' },
   addBtn: {
     borderRadius: 12, borderWidth: 1.5, borderColor: '#374151',
     borderStyle: 'dashed', padding: 14, alignItems: 'center',
