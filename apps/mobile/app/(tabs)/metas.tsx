@@ -1,26 +1,67 @@
-import React, { useState } from 'react';
+import { useI18n } from '../../src/hooks/useI18n';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { EmptyState } from '../../src/molecules/EmptyState';
+import { QuickStats } from '../../src/molecules/QuickStats';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FullScrollLayout } from '../../src/templates/FullScrollLayout';
 import { GoalBoard } from '../../src/organisms/GoalBoard';
 import { AgentBadge } from '../../src/atoms/AgentBadge';
 import { AgentResponseCard, type AgentResponseData } from '../../src/organisms/AgentResponseCard';
+import { EvolutionChart, type EvolutionPoint } from '../../src/molecules/EvolutionChart';
+import { WeeklyPipelineReport } from '../../src/molecules/WeeklyPipelineReport';
 import { useGoals } from '../../src/hooks/useGoals';
 
 const ALEXANDRE = { name: 'Alexandre', fullName: 'Alexandre, o Grande', emoji: '⚔️', color: '#DC2626', domain: 'Metas Audaciosas' };
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3002';
 
+interface PipelineData {
+  weekOf: string;
+  completedAt: string;
+  lifeHealthScore: number;
+  ancScore: number;
+  topGaps: string[];
+  weeklyPlan: string[];
+  summary: string;
+  phases: Array<{ phase: string; status: 'ok' | 'error' | 'skipped'; durationMs: number }>;
+}
+
 export default function MetasScreen() {
+  const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const [agentResp, setAgentResp] = useState<AgentResponseData | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [pipeline, setPipeline] = useState<PipelineData | null>(null);
   const goals = useGoals();
   const goalsArr = (goals as any).goals ?? [];
   const active = goalsArr.filter((g: any) => g.status === 'active');
   const avgProgress = active.length
     ? Math.round(active.reduce((s: number, g: any) => s + (g.progress ?? 0), 0) / active.length)
     : 0;
+
+  // Pontos de evolução baseados no progresso das metas
+  const evolutionPoints: EvolutionPoint[] = active.slice(0, 10).map((g: any, i: number) => ({
+    timestamp: new Date(Date.now() - (active.length - 1 - i) * 7 * 86400000).toISOString(),
+    value: g.progress ?? 0,
+    delta: i > 0 ? (g.progress ?? 0) - (active[i - 1]?.progress ?? 0) : 0,
+  }));
+
+  const trendLabel: 'strong_up' | 'up' | 'flat' | 'down' | 'strong_down' =
+    avgProgress >= 70 ? 'strong_up' : avgProgress >= 50 ? 'up' : avgProgress >= 30 ? 'flat' : avgProgress >= 15 ? 'down' : 'strong_down';
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/copilot/weekly-pipeline?userId=default`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (d && Array.isArray(d) && d.length > 0) {
+          setPipeline(d[d.length - 1]);
+        } else if (d && d.lifeHealthScore !== undefined) {
+          setPipeline(d);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   async function analyzeMetas() {
     setAnalyzing(true);
@@ -49,11 +90,35 @@ export default function MetasScreen() {
 
   return (
     <FullScrollLayout
-      title="Metas"
-      subtitle="Conquiste seus territórios"
+      title={t("goals.title")}
+      subtitle={t("goals.subtitle")}
       paddingBottom={insets.bottom + 90}
       rightAction={<AgentBadge {...ALEXANDRE} compact onPress={analyzeMetas} />}
     >
+      {/* Empty state when no goals */}
+      {goalsArr.length === 0 && (
+        <EmptyState
+          emoji="⚔️"
+          title={t('goals.noGoals')}
+          body={t('goals.noGoalsHint')}
+          ctaLabel={t('goals.newGoal')}
+          onCta={() => {}}
+        />
+      )}
+
+      {/* QuickStats overview */}
+      {active.length > 0 && (
+        <QuickStats
+          delay={0}
+          stats={[
+            { value: active.length, label: t('goals.active'), icon: '🎯', color: '#DC2626' },
+            { value: `${avgProgress}%`, label: t('goals.progress'), icon: '📈', color: avgProgress >= 50 ? '#4ADE80' : '#FBBF24' },
+            { value: goalsArr.filter((g: any) => g.status === 'completed').length, label: t('goals.completed'), icon: '🏆', color: '#A78BFA' },
+            { value: goalsArr.filter((g: any) => g.status === 'paused').length, label: t('goals.paused'), icon: '⏸️', color: '#6B7280' },
+          ]}
+        />
+      )}
+
       {/* Overview de progresso */}
       {active.length > 0 && (
         <Animated.View entering={FadeInDown.delay(0)} style={styles.overviewCard}>
@@ -77,8 +142,42 @@ export default function MetasScreen() {
         </Animated.View>
       )}
 
+      {/* SWE-CI: Evolution Chart de progresso */}
+      {active.length > 0 && (
+        <Animated.View entering={FadeInDown.delay(30)}>
+          <EvolutionChart
+            area="Metas"
+            metric="Progresso médio (%)"
+            points={evolutionPoints}
+            trendLabel={trendLabel}
+            patternInsight={
+              avgProgress >= 70
+                ? 'Excelente ritmo de conquista — você está vencendo! 🏆'
+                : avgProgress >= 40
+                ? 'Progresso constante — manter foco nas metas críticas'
+                : 'Progresso lento detectado — revisar prioridades e plano de ação'
+            }
+          />
+        </Animated.View>
+      )}
+
+      {/* SWE-CI: Weekly Pipeline Report */}
+      {pipeline && (
+        <Animated.View entering={FadeInDown.delay(60)}>
+          <WeeklyPipelineReport
+            weekOf={pipeline.weekOf}
+            completedAt={pipeline.completedAt}
+            lifeHealthScore={pipeline.lifeHealthScore}
+            ancScore={pipeline.ancScore}
+            topGaps={pipeline.topGaps}
+            weeklyPlan={pipeline.weeklyPlan}
+            phases={pipeline.phases}
+          />
+        </Animated.View>
+      )}
+
       {/* Botão analisar */}
-      <Animated.View entering={FadeInDown.delay(60)}>
+      <Animated.View entering={FadeInDown.delay(90)}>
         <TouchableOpacity style={styles.analyzeBtn} onPress={analyzeMetas} disabled={analyzing} activeOpacity={0.8}>
           {analyzing
             ? <ActivityIndicator size="small" color="#fff" />

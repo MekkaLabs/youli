@@ -23,6 +23,7 @@ const LEONARDO = {
 type TabId = 'projecao' | 'simulador';
 
 export default function SimularScreen() {
+  const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const onAgentPress = useAgentAction('simular', LEONARDO.name);
   const [tab, setTab] = useState<TabId>('projecao');

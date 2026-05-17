@@ -3,7 +3,7 @@
  * Gerencia: progresso, marcos (milestones), prazo, categorias, Alexandre insights
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, AppStateStatus } from 'react-native';
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3002';
@@ -332,17 +332,18 @@ export function useGoals() {
     });
   }, []);
 
-  // Stats
-  const stats = {
+  // Stats — memoized to prevent recomputation on unrelated state changes
+  const stats = useMemo(() => ({
     total: goals.length,
     active: goals.filter(g => goalStatus(g) === 'active').length,
     completed: goals.filter(g => goalStatus(g) === 'completed').length,
     atRisk: goals.filter(g => goalStatus(g) === 'at_risk').length,
+    paused: goals.filter(g => goalStatus(g) === 'paused').length,
     avgProgress: goals.length
       ? Math.round(goals.reduce((s, g) => s + progressPercent(g.currentValue, g.targetValue), 0) / goals.length)
       : 0,
     milestonesReached: goals.reduce((s, g) => s + g.milestones.filter(m => !!m.reachedAt).length, 0),
-  };
+  }), [goals]);
 
   return {
     goals,

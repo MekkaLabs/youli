@@ -463,12 +463,14 @@ export async function runOrchestratorGraph(input: RunGraphInput): Promise<GraphO
           (g: { progress?: number; status?: string }) => (g.progress ?? 0) < 30 && g.status === 'active'
         );
         if (lowGoals.length > 0) {
-          const attribution = await attributeFailure(
-            input.context as Record<string, unknown>,
-            lowGoals[0] as Record<string, unknown>,
-            primaryArea
+          const failedItem = (lowGoals[0] as Record<string, unknown>).title as string | undefined ?? 'meta';
+          const attribution = attributeFailure(
+            primaryArea,
+            failedItem,
+            input.context as Record<string, unknown>
           );
-          pushEvent(events, `failure_attribution:causes=${attribution.causes.join(',')}`);
+          const causeNames = attribution.causes.map((c) => c.cause).join(',');
+          pushEvent(events, `failure_attribution:primary=${attribution.primaryCause}:causes=${causeNames}`);
         }
       } catch { /* non-blocking */ }
     }

@@ -182,7 +182,49 @@ export function useHealth() {
         return;
       }
 
-      // 2. API
+      // 2. Strava + Zepp unified summary (real data from connected apps)
+      const summaryRes = await fetch(`${API_BASE}/api/fitness/summary`).catch(() => null);
+      if (summaryRes?.ok) {
+        const fitData = await summaryRes.json() as {
+          sources: { strava: boolean; zepp: boolean };
+          today: {
+            steps: number; activeCalories: number;
+            sleepHours: number; heartRateResting: number; exerciseMin: number;
+          };
+          workouts: WorkoutSession[];
+          lastSyncAt: string | null;
+        };
+        const hasRealData = fitData.sources.strava || fitData.sources.zepp;
+        if (hasRealData && (fitData.today.steps > 0 || fitData.workouts.length > 0)) {
+          const week = mockWeekData(); // fill trend with mock until Zepp history available
+          setSummary({
+            today: {
+              date: new Date().toISOString().split('T')[0],
+              steps: fitData.today.steps,
+              activeCalories: fitData.today.activeCalories,
+              totalCalories: fitData.today.activeCalories + 1800,
+              distanceKm: parseFloat((fitData.today.steps * 0.0008).toFixed(1)),
+              sleepHours: fitData.today.sleepHours,
+              heartRateAvg: fitData.today.heartRateResting + 15,
+              heartRateResting: fitData.today.heartRateResting,
+              standHours: 0,
+              exerciseMin: fitData.today.exerciseMin,
+              waterMl: 0,
+            },
+            weekAvg: {
+              steps: Math.round(week.reduce((s, d) => s + d.steps, 0) / 7),
+              sleepHours: fitData.today.sleepHours,
+              activeCalories: fitData.today.activeCalories,
+            },
+            weekTrend: week,
+            workouts: fitData.workouts.length ? fitData.workouts : mockWorkouts(),
+            source: 'api',
+          });
+          return;
+        }
+      }
+
+      // 3. Legacy API fallback
       const res = await fetch(`${API_BASE}/api/fitness/route`).catch(() => null);
       if (res?.ok) {
         const apiData = await res.json();

@@ -2,7 +2,7 @@
  * Insights — padrões de vida gerados por IA
  * Sócrates analisa hábitos, metas, finanças e padrões cross-área
  */
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ActivityIndicator, ScrollView,
@@ -14,6 +14,17 @@ import { AgentBadge } from '../../src/atoms/AgentBadge';
 import { useAgentAction } from '../../src/hooks/useAgentAction';
 import { useInsights, AIInsight } from '../../src/hooks/useInsights';
 import { CrossAreaInsights } from '../../src/organisms/CrossAreaInsights';
+import { RequirementsDocCard } from '../../src/molecules/RequirementsDocCard';
+
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3002';
+
+interface GapInsight {
+  area: string;
+  metric: string;
+  gapMagnitude: number;
+  priority: string;
+  requirement: string;
+}
 
 const SOCRATES = {
   name: 'Sócrates',
@@ -77,10 +88,19 @@ function InsightCardAI({ insight, index }: { insight: AIInsight; index: number }
 }
 
 export default function InsightsScreen() {
+  const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const onAgentPress = useAgentAction('insights', SOCRATES.name);
   const { insights, loading, lastUpdated, refresh } = useInsights();
   const [energyFilter, setEnergyFilter] = React.useState<'all' | 'alta' | 'media' | 'baixa'>('all');
+  const [topGaps, setTopGaps] = React.useState<GapInsight[]>([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/copilot/life-health?userId=default`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => d?.topGaps && setTopGaps(d.topGaps.slice(0, 3)))
+      .catch(() => {});
+  }, []);
 
   const filtered = energyFilter === 'all' ? insights : insights.filter(i => i.energy === energyFilter);
 
@@ -101,13 +121,36 @@ export default function InsightsScreen() {
 
   return (
     <FullScrollLayout
-      title="Insights"
-      subtitle="Padrões que revelam oportunidades"
+      title={t("insights.title")}
+      subtitle={t("insights.subtitle")}
       paddingBottom={insets.bottom + 90}
       rightAction={<AgentBadge {...SOCRATES} compact onPress={onAgentPress} />}
     >
       {/* Life Balance cross-area */}
       <CrossAreaInsights compact />
+
+      {/* SWE-CI: Top gaps críticos como insights prioritários */}
+      {topGaps.length > 0 && (
+        <Animated.View entering={FadeInDown.delay(0)}>
+          <View style={styles.gapSection}>
+            <Text style={styles.gapSectionTitle}>🔍 Gaps Críticos Detectados</Text>
+            {topGaps.map((gap, i) => (
+              <View key={i} style={[styles.gapItem, { borderLeftColor: gap.priority === 'critical' ? '#e17055' : gap.priority === 'high' ? '#fdcb6e' : '#74b9ff' }]}>
+                <View style={styles.gapItemHeader}>
+                  <Text style={styles.gapItemArea}>{gap.area}</Text>
+                  <View style={[styles.priorityChip, { backgroundColor: gap.priority === 'critical' ? '#2D0000' : '#1A1500' }]}>
+                    <Text style={[styles.priorityText, { color: gap.priority === 'critical' ? '#e17055' : '#fdcb6e' }]}>
+                      {gap.priority}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.gapMetric}>{gap.metric} — gap: {Math.round(gap.gapMagnitude * 100)}%</Text>
+                <Text style={styles.gapRequirement}>{gap.requirement}</Text>
+              </View>
+            ))}
+          </View>
+        </Animated.View>
+      )}
 
       {/* Header */}
       <View style={styles.headerRow}>
@@ -192,4 +235,16 @@ const styles = StyleSheet.create({
   emptyWrap: { alignItems: 'center', paddingVertical: 32, gap: 8 },
   emptyEmoji: { fontSize: 36 },
   emptyText: { fontSize: 14, color: '#6B7280' },
+  gapSection: { gap: 8 },
+  gapSectionTitle: { fontSize: 12, color: '#6B7280', fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+  gapItem: {
+    backgroundColor: '#111827', borderRadius: 10, padding: 12,
+    borderLeftWidth: 3, borderWidth: 1, borderColor: '#1F2937', gap: 4,
+  },
+  gapItemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  gapItemArea: { fontSize: 13, color: '#F9FAFB', fontWeight: '800', textTransform: 'capitalize' },
+  priorityChip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  priorityText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
+  gapMetric: { fontSize: 11, color: '#6B7280', fontWeight: '600' },
+  gapRequirement: { fontSize: 12, color: '#D1D5DB', lineHeight: 18 },
 });

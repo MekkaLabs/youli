@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { colors, fontWeight, fontSize, radii, spacing, shadows } from '../../theme/tokens';
@@ -13,7 +13,7 @@ interface MetricCardProps {
   style?: ViewStyle;
 }
 
-export function MetricCard({ label, value, sub, tone = colors.card, textColor = colors.text, index = 0, style }: MetricCardProps) {
+function MetricCard({ label, value, sub, tone = colors.card, textColor = colors.text, index = 0, style }: MetricCardProps) {
   return (
     <Animated.View
       entering={FadeInDown.delay(index * 80).springify().damping(24).stiffness(220).mass(0.9)}
@@ -38,3 +38,5 @@ const styles = StyleSheet.create({
   value: { fontSize: fontSize.xl, fontWeight: fontWeight.black, marginTop: spacing.xs },
   sub: { fontSize: fontSize.xs, fontWeight: fontWeight.medium, marginTop: 2 },
 });
+
+export default memo(MetricCard);

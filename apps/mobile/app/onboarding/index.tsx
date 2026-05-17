@@ -15,6 +15,8 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useI18n, SUPPORTED_LANGUAGES, LANGUAGE_LABELS } from '../../src/hooks/useI18n';
+import type { SupportedLanguage } from '../../src/hooks/useI18n';
 
 const { width } = Dimensions.get('window');
 
@@ -36,11 +38,12 @@ const ORCHESTRATOR_PRESETS = [
   { name: 'Mentor', desc: 'Conselheiro sábio e paciente' },
 ];
 
-type Step = 0 | 1 | 2;
+type Step = -1 | 0 | 1 | 2; // -1 = language picker
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
-  const [step, setStep] = useState<Step>(0);
+  const { t, setLanguage, language } = useI18n();
+  const [step, setStep] = useState<Step>(-1); // start at language picker
   const [userName, setUserName] = useState('');
   const [orchestratorName, setOrchestratorName] = useState('Youli');
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
@@ -65,12 +68,56 @@ export default function OnboardingScreen() {
         notifications: { daily_digest: true, habit_reminders: true, goal_alerts: true, finance_alerts: true },
         digestHour: 8,
         theme: 'dark',
-        language: 'pt-BR',
+        language,
         onboardingDone: true,
         priorityAreas: selectedAreas,
       })),
     ]);
     router.replace('/(tabs)/dashboard');
+  }
+
+  // ─── Language picker screen ─────────────────────────────────────────────────
+  if (step === -1) {
+    const FLAG: Record<SupportedLanguage, string> = {
+      'pt-BR': '🇧🇷', en: '🇺🇸', es: '🇪🇸', zh: '🇨🇳',
+    };
+    return (
+      <View style={[styles.langRoot, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 20 }]}>
+        <Animated.View entering={FadeIn.duration(500)} style={styles.langContent}>
+          <Text style={styles.langLogo}>✦ Youli</Text>
+          <Text style={styles.langTitle}>Choose your language</Text>
+          <Text style={styles.langSub}>Escolha / Elija / 选择语言</Text>
+          <View style={styles.langOptions}>
+            {SUPPORTED_LANGUAGES.map((lang) => {
+              const selected = language === lang;
+              return (
+                <TouchableOpacity
+                  key={lang}
+                  style={[styles.langOption, selected && styles.langOptionSel]}
+                  onPress={() => setLanguage(lang)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                >
+                  <Text style={styles.langFlag}>{FLAG[lang]}</Text>
+                  <Text style={[styles.langLabel, selected && styles.langLabelSel]}>
+                    {LANGUAGE_LABELS[lang]}
+                  </Text>
+                  {selected && <Text style={styles.langCheck}>✓</Text>}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <TouchableOpacity
+            style={styles.langContinue}
+            onPress={() => setStep(0)}
+            accessibilityRole="button"
+            accessibilityLabel="Continuar"
+          >
+            <Text style={styles.langContinueText}>{t('onboarding.start')} →</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    );
   }
 
   const steps = [
@@ -261,4 +308,28 @@ const styles = StyleSheet.create({
   finishBtn: { backgroundColor: '#059669', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
   btnDisabled: { opacity: 0.35 },
   nextBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+
+  // ─── Language picker styles ───────────────────────────────────────────────
+  langRoot: { flex: 1, backgroundColor: '#030712' },
+  langContent: { flex: 1, alignItems: 'center', paddingHorizontal: 32 },
+  langLogo: { fontSize: 28, fontWeight: '900', color: '#A78BFA', marginBottom: 40, letterSpacing: -0.5 },
+  langTitle: { fontSize: 26, fontWeight: '900', color: '#F9FAFB', marginBottom: 6, textAlign: 'center' },
+  langSub: { fontSize: 13, color: '#6B7280', marginBottom: 36, textAlign: 'center' },
+  langOptions: { width: '100%', gap: 12 },
+  langOption: {
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    backgroundColor: '#111827', borderRadius: 14, padding: 16,
+    borderWidth: 1, borderColor: '#1F2937',
+  },
+  langOptionSel: { backgroundColor: '#1E0D3B', borderColor: '#7C3AED' },
+  langFlag: { fontSize: 28 },
+  langLabel: { flex: 1, fontSize: 16, fontWeight: '700', color: '#9CA3AF' },
+  langLabelSel: { color: '#A78BFA' },
+  langCheck: { fontSize: 16, color: '#7C3AED', fontWeight: '900' },
+  langContinue: {
+    marginTop: 40, backgroundColor: '#7C3AED',
+    paddingHorizontal: 40, paddingVertical: 16, borderRadius: 14,
+    width: '100%', alignItems: 'center',
+  },
+  langContinueText: { color: '#fff', fontSize: 16, fontWeight: '900', letterSpacing: 0.3 },
 });

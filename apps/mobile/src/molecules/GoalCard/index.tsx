@@ -7,7 +7,7 @@
  * - Alexandre comentando o progresso
  */
 
-import React, { useState } from 'react';
+import React, { memo, useState } from 'react';
 import {
   View,
   Text,
@@ -51,7 +51,7 @@ function getAlexandreComment(percent: number, daysLeft: number, status: string):
   return 'A jornada começa com o primeiro passo. Você já deu o seu — agora mantenha o ritmo.';
 }
 
-export function GoalCard({ goal, index = 0, status, progressPercent, daysUntil, onUpdateProgress }: GoalCardProps) {
+function GoalCard({ goal, index = 0, status, progressPercent, daysUntil, onUpdateProgress }: GoalCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [showUpdate, setShowUpdate] = useState(false);
   const [inputValue, setInputValue] = useState(String(goal.currentValue));
@@ -288,3 +288,5 @@ const styles = StyleSheet.create({
   expandIndicator: { alignItems: 'center', paddingTop: 4 },
   expandText: { fontSize: 11, color: '#4B5563' },
 });
+
+export default memo(GoalCard);

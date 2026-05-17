@@ -20,6 +20,8 @@ interface CheckButtonProps {
   color?: string;
   size?: number;
   disabled?: boolean;
+  /** Screen reader label — e.g. "Marcar hábito Meditação como concluído" */
+  accessibilityLabel?: string;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -30,6 +32,7 @@ export function CheckButton({
   color = '#059669',
   size = 36,
   disabled = false,
+  accessibilityLabel,
 }: CheckButtonProps) {
   const scale = useSharedValue(1);
   const progress = useSharedValue(checked ? 1 : 0);
@@ -74,12 +77,19 @@ export function CheckButton({
   return (
     <AnimatedPressable
       onPress={disabled ? undefined : onPress}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked, disabled }}
+      accessibilityLabel={accessibilityLabel}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       style={[
         styles.button,
         {
           width: size,
           height: size,
           borderRadius: size / 2,
+          // Ensure minimum tap target even if visual size is smaller
+          minWidth: Math.max(size, 44),
+          minHeight: Math.max(size, 44),
         },
         animStyle,
       ]}

@@ -7,7 +7,7 @@
  * - Animação de entrada escalonada
  */
 
-import React, { useState } from 'react';
+import React, { memo, useState } from 'react';
 import {
   View,
   Text,
@@ -59,7 +59,7 @@ function getCategoryColor(category: string): string {
   return map[category] ?? '#6B7280';
 }
 
-export function HabitCard({ habit, index = 0, isCheckedToday, onToggle }: HabitCardProps) {
+function HabitCard({ habit, index = 0, isCheckedToday, onToggle }: HabitCardProps) {
   const [expanded, setExpanded] = useState(false);
   const cardScale = useSharedValue(1);
 
@@ -294,3 +294,5 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
+
+export default memo(HabitCard);

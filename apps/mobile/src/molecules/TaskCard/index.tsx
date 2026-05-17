@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import type { Task } from '@youli/shared';
@@ -17,7 +17,7 @@ interface TaskCardProps {
 
 const AnimPressable = Animated.createAnimatedComponent(Pressable);
 
-export function TaskCard({ task, onPress, onComplete, index = 0 }: TaskCardProps) {
+function TaskCard({ task, onPress, onComplete, index = 0 }: TaskCardProps) {
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
@@ -69,3 +69,5 @@ const styles = StyleSheet.create({
   titleDone: { textDecorationLine: 'line-through', color: colors.muted },
   next: { fontSize: fontSize.sm, color: colors.muted, marginTop: 3 },
 });
+
+export default memo(TaskCard);

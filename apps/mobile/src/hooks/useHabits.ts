@@ -3,7 +3,7 @@
  * Gerencia: check/uncheck, cálculo de streak, datas completadas, milestone detection
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMilestone } from '../molecules/StreakMilestone';
 import { AppState, AppStateStatus } from 'react-native';
@@ -338,19 +338,19 @@ export function useHabits() {
     });
   }, []);
 
-  // Stats gerais
-  const stats = {
+  // Stats gerais — memoized to prevent recomputation on unrelated state changes
+  const stats = useMemo(() => ({
     total: habits.length,
     completedToday: habits.filter(isCompletedToday).length,
-    longestStreak: Math.max(...habits.map((h) => h.streak), 0),
-    bestEver: Math.max(...habits.map((h) => h.bestStreak), 0),
+    longestStreak: habits.length ? Math.max(...habits.map((h) => h.streak), 0) : 0,
+    bestEver: habits.length ? Math.max(...habits.map((h) => h.bestStreak), 0) : 0,
     totalCompletions: habits.reduce((s, h) => s + h.completedDates.length, 0),
     strongHabits: habits.filter((h) => h.streak >= 7).length,
     categorySummary: habits.reduce<Record<string, number>>((acc, h) => {
       acc[h.category] = (acc[h.category] ?? 0) + 1;
       return acc;
     }, {}),
-  };
+  }), [habits]);
 
   return {
     habits,

@@ -13,6 +13,7 @@ import { AgentBadge } from '../../src/atoms/AgentBadge';
 import { useAgentAction } from '../../src/hooks/useAgentAction';
 import { EventCard, FocusBlockCard } from '../../src/molecules/CalendarBlock';
 import { useCalendar } from '../../src/hooks/useCalendar';
+import { useSWECI } from '../../src/hooks/useSWECI';
 
 const TESLA = {
   name: 'Tesla',
@@ -23,6 +24,7 @@ const TESLA = {
 };
 
 export default function CalendarioScreen() {
+  const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const onAgentPress = useAgentAction('calendario', TESLA.name);
   const {
@@ -37,6 +39,8 @@ export default function CalendarioScreen() {
   } = useCalendar();
 
   const [activeTab, setActiveTab] = useState<'agenda' | 'foco'>('agenda');
+  const { getAreaGap, maintainabilityVerdict, maintainabilityScore } = useSWECI();
+  const calendarioGap = getAreaGap('calendario');
 
   const teslaInsight = currentEvent
     ? `Você está em "${currentEvent.title}" agora. Tesla sugere máxima concentração — sem distrações.`
@@ -48,12 +52,46 @@ export default function CalendarioScreen() {
 
   return (
     <FullScrollLayout
-      title="Calendário"
+      title={t("calendar.title")}
       subtitle={todayLabel}
       paddingBottom={insets.bottom + 90}
       onRefresh={refresh}
       rightAction={<AgentBadge {...TESLA} compact onPress={onAgentPress} />}
     >
+      {/* SWE-CI: painel de tempo e sustentabilidade */}
+      {(calendarioGap || maintainabilityScore > 0) && (
+        <Animated.View entering={FadeInDown.delay(0)} style={styles.sweciPanel}>
+          <View style={styles.sweciRow}>
+            <View style={styles.sweciMetric}>
+              <Text style={styles.sweciLabel}>Sustentab.</Text>
+              <Text style={[styles.sweciValue, {
+                color: maintainabilityVerdict === 'sustainable' ? '#00b894'
+                  : maintainabilityVerdict === 'moderate_risk' ? '#fdcb6e' : '#e17055'
+              }]}>
+                {maintainabilityVerdict === 'sustainable' ? '✅ Ok'
+                  : maintainabilityVerdict === 'moderate_risk' ? '⚠️ Risco'
+                  : '🔴 Alto'}
+              </Text>
+            </View>
+            <View style={styles.sweciMetric}>
+              <Text style={styles.sweciLabel}>Blocos deep</Text>
+              <Text style={styles.sweciValue}>{focusBlocks.filter((b: any) => b.quality === 'deep').length}</Text>
+            </View>
+            <View style={styles.sweciMetric}>
+              <Text style={styles.sweciLabel}>Eficiência</Text>
+              <Text style={[styles.sweciValue, { color: focusBlocks.length >= 2 ? '#00b894' : '#fdcb6e' }]}>
+                {focusBlocks.length >= 3 ? 'Alta' : focusBlocks.length >= 1 ? 'Média' : 'Baixa'}
+              </Text>
+            </View>
+          </View>
+          {calendarioGap && (
+            <View style={styles.sweciGap}>
+              <Text style={styles.sweciGapText}>📅 {calendarioGap.requirement}</Text>
+            </View>
+          )}
+        </Animated.View>
+      )}
+
       {/* Tesla insight */}
       <Animated.View entering={FadeInDown.delay(80)} style={styles.teslaCard}>
         <Text style={styles.teslaTag}>⚡ Nikola Tesla</Text>
@@ -176,4 +214,11 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#2D1B6E',
   },
   tipText: { fontSize: 12, color: '#A78BFA', lineHeight: 19 },
+  sweciPanel: { backgroundColor: '#0D1220', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#1F2937', gap: 10 },
+  sweciRow: { flexDirection: 'row', justifyContent: 'space-around' },
+  sweciMetric: { alignItems: 'center', gap: 4 },
+  sweciLabel: { fontSize: 10, color: '#6B7280', fontWeight: '700', textTransform: 'uppercase' },
+  sweciValue: { fontSize: 14, fontWeight: '800', color: '#F9FAFB' },
+  sweciGap: { backgroundColor: '#111827', borderRadius: 8, padding: 10 },
+  sweciGapText: { fontSize: 12, color: '#93C5FD', lineHeight: 18 },
 });

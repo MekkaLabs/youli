@@ -7,6 +7,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, Modal, SafeAreaView,
   Switch, ScrollView, TextInput,
 } from 'react-native';
+import { useI18n, SUPPORTED_LANGUAGES, LANGUAGE_LABELS } from '../../src/hooks/useI18n';
 import { router } from 'expo-router';
 import Animated, { FadeInDown, SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,9 +42,35 @@ export default function PerfilScreen() {
   const { settings, setNotifPref } = useSettings();
   const { xpData, achievements } = useXP();
   const { shouldShow: showReview, openManually, saveReview, dismiss } = useWeeklyReview();
+  const { language, setLanguage } = useI18n();
 
   const [showOrch, setShowOrch] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
+  const [runningPipeline, setRunningPipeline] = useState(false);
+  const [pipelineResult, setPipelineResult] = useState<string | null>(null);
+
+  async function runCIPipeline() {
+    setRunningPipeline(true);
+    setPipelineResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/copilot/weekly-pipeline`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ userId: profile.name || 'default', context: {} }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPipelineResult(`✅ Pipeline concluído — Life Health: ${data.lifeHealthScore}/100 | ANC: ${data.ancScore}/100`);
+      } else {
+        setPipelineResult('❌ Erro ao rodar o pipeline');
+      }
+    } catch {
+      setPipelineResult('❌ Sem conexão com a API');
+    } finally {
+      setRunningPipeline(false);
+    }
+  }
   const [editName, setEditName] = useState(false);
   const [nameInput, setNameInput] = useState(profile.name);
   const [hdBirthDate, setHdBirthDate] = useState(profile.humanDesign.birthData?.date || '');
@@ -260,7 +287,45 @@ export default function PerfilScreen() {
           <Text style={styles.actionIcon}>⚙️</Text>
           <Text style={styles.actionLabel}>Configurações</Text>
         </TouchableOpacity>
+        <TouchableOpacity onPress={runCIPipeline} style={[styles.actionBtn, runningPipeline && { opacity: 0.6 }]} disabled={runningPipeline}>
+          <Text style={styles.actionIcon}>{runningPipeline ? '⏳' : '🔄'}</Text>
+          <Text style={styles.actionLabel}>CI Semanal</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/life-score' as any)} style={styles.actionBtn}>
+          <Text style={styles.actionIcon}>📊</Text>
+          <Text style={styles.actionLabel}>Life Score</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/sweci-settings' as any)} style={styles.actionBtn}>
+          <Text style={styles.actionIcon}>🛠️</Text>
+          <Text style={styles.actionLabel}>SWE-CI</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/evolution-history' as any)} style={styles.actionBtn}>
+          <Text style={styles.actionIcon}>📈</Text>
+          <Text style={styles.actionLabel}>Evolução</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/integrations' as any)} style={styles.actionBtn}>
+          <Text style={styles.actionIcon}>🔗</Text>
+          <Text style={styles.actionLabel}>Integrações</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => setShowLanguagePicker(true)} style={styles.actionBtn}>
+          <Text style={styles.actionIcon}>🌍</Text>
+          <Text style={styles.actionLabel}>Idioma</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/accessibility-settings' as any)} style={styles.actionBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Configurações de acessibilidade"
+        >
+          <Text style={styles.actionIcon}>♿</Text>
+          <Text style={styles.actionLabel}>Acesso</Text>
+        </TouchableOpacity>
       </Animated.View>
+
+      {/* Pipeline Result */}
+      {pipelineResult && (
+        <Animated.View entering={FadeInDown} style={styles.pipelineResult}>
+          <Text style={styles.pipelineResultText}>{pipelineResult}</Text>
+        </Animated.View>
+      )}
 
       {/* Conquistas */}
       <Animated.View entering={FadeInDown.delay(220)}>
@@ -419,6 +484,38 @@ export default function PerfilScreen() {
 
       {/* Weekly Review */}
       <WeeklyReview visible={showReview} onClose={dismiss} />
+
+      {/* Language Picker Modal */}
+      <Modal visible={showLanguagePicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowLanguagePicker(false)}>
+        <SafeAreaView style={styles.modalSafe}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>🌍 Idioma / Language</Text>
+            <TouchableOpacity onPress={() => setShowLanguagePicker(false)}><Text style={styles.modalClose}>Fechar</Text></TouchableOpacity>
+          </View>
+          <View style={{ padding: 20, gap: 10 }}>
+            {SUPPORTED_LANGUAGES.map((lang) => {
+              const selected = language === lang;
+              return (
+                <TouchableOpacity
+                  key={lang}
+                  style={[styles.langOption, selected && styles.langOptionSelected]}
+                  onPress={async () => { await setLanguage(lang); setShowLanguagePicker(false); }}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                >
+                  <Text style={styles.langEmoji}>
+                    {lang === 'pt-BR' ? '🇧🇷' : lang === 'en' ? '🇺🇸' : lang === 'es' ? '🇪🇸' : '🇨🇳'}
+                  </Text>
+                  <Text style={[styles.langLabel, selected && styles.langLabelSelected]}>
+                    {LANGUAGE_LABELS[lang]}
+                  </Text>
+                  {selected && <Text style={styles.langCheck}>✓</Text>}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </SafeAreaView>
+      </Modal>
     </FullScrollLayout>
   );
 }
@@ -469,4 +566,15 @@ const styles = StyleSheet.create({
   personaCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#111827', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#1F2937' },
   personaSwitchCol: { alignItems: 'center', gap: 4 },
   personaSwitchLabel: { fontSize: 10, color: '#6B7280', fontWeight: '700', textTransform: 'uppercase' },
+  pipelineResult: {
+    backgroundColor: '#0D1A0D', borderRadius: 12, padding: 14,
+    borderWidth: 1, borderColor: '#065F46',
+  },
+  pipelineResultText: { fontSize: 13, color: '#D1FAE5', fontWeight: '600', textAlign: 'center' },
+  langOption: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#111827', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#1F2937' },
+  langOptionSelected: { borderColor: '#7C3AED', backgroundColor: '#1A0A3A' },
+  langEmoji: { fontSize: 26 },
+  langLabel: { flex: 1, fontSize: 16, fontWeight: '700', color: '#9CA3AF' },
+  langLabelSelected: { color: '#F9FAFB' },
+  langCheck: { fontSize: 18, color: '#7C3AED', fontWeight: '900' },
 });

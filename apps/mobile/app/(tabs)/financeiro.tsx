@@ -1,3 +1,4 @@
+import { useI18n } from '../../src/hooks/useI18n';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -22,6 +23,7 @@ function money(v: number) {
 }
 
 export default function FinanceiroScreen() {
+  const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const onAgentPress = useAgentAction('financeiro', ADAM.name);
   const [tab, setTab] = useState<'lancamentos' | 'contas'>('lancamentos');
@@ -32,8 +34,8 @@ export default function FinanceiroScreen() {
 
   return (
     <FullScrollLayout
-      title="Financeiro"
-      subtitle="Construa riqueza, não só renda"
+      title={t("finances.title")}
+      subtitle={t("finances.subtitle")}
       paddingBottom={insets.bottom + 90}
       rightAction={<AgentBadge {...ADAM} compact onPress={onAgentPress} />}
     >

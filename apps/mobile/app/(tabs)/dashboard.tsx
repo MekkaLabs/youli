@@ -4,8 +4,12 @@
  */
 
 import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useI18n } from '../../src/hooks/useI18n';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { FullScrollLayout } from '../../src/templates/FullScrollLayout';
 import { DashboardHero } from '../../src/organisms/DashboardHero';
 import { AgentBadge } from '../../src/atoms/AgentBadge';
@@ -18,6 +22,73 @@ import { GlobalSearch, SearchTrigger } from '../../src/organisms/GlobalSearch';
 import { ShareProgressButton } from '../../src/organisms/ShareCard';
 import { tokens } from '../../src/theme/tokens';
 import { useUI } from '../../src/store';
+import { useSWECI } from '../../src/hooks/useSWECI';
+import { TodayFocusCard } from '../../src/organisms/TodayFocusCard';
+
+interface LifeHealthData {
+  lifeHealthScore: number;
+  ancScore: number;
+  maintainabilityScore: number;
+  maintainabilityVerdict: 'sustainable' | 'moderate_risk' | 'high_risk';
+  criticalAreas: string[];
+}
+
+function LifeHealthHUD({ data, onPress }: { data: LifeHealthData; onPress?: () => void }) {
+  const { t } = useI18n();
+  const getColor = (s: number) => s >= 70 ? '#00b894' : s >= 40 ? '#fdcb6e' : '#e17055';
+  const verdictLabel = data.maintainabilityVerdict === 'sustainable' ? `✅ ${t('calendar.sustainability')}`
+    : data.maintainabilityVerdict === 'moderate_risk' ? '⚠️ Risco moderado' : '🔴 Alto risco';
+  const verdictColor = data.maintainabilityVerdict === 'sustainable' ? '#00b894'
+    : data.maintainabilityVerdict === 'moderate_risk' ? '#fdcb6e' : '#e17055';
+
+  return (
+    <TouchableOpacity style={hudStyles.container} onPress={onPress} activeOpacity={onPress ? 0.75 : 1}
+      accessibilityLabel={t('a11y.lifeHealthScore', { score: String(data.lifeHealthScore) })}
+      accessibilityRole="button"
+    >
+      <View style={hudStyles.row}>
+        <View style={hudStyles.metric}>
+          <Text style={hudStyles.label}>{t('dashboard.lifeHealth')}</Text>
+          <Text style={[hudStyles.value, { color: getColor(data.lifeHealthScore) }]}>{data.lifeHealthScore}</Text>
+        </View>
+        <View style={hudStyles.divider} />
+        <View style={hudStyles.metric}>
+          <Text style={hudStyles.label}>{t('dashboard.ancScore')}</Text>
+          <Text style={[hudStyles.value, { color: getColor(data.ancScore) }]}>{data.ancScore}</Text>
+        </View>
+        <View style={hudStyles.divider} />
+        <View style={hudStyles.metric}>
+          <Text style={hudStyles.label}>{t('dashboard.sustainability')}</Text>
+          <Text style={[hudStyles.verdictText, { color: verdictColor }]}>{verdictLabel}</Text>
+        </View>
+      </View>
+      {data.criticalAreas.length > 0 && (
+        <View style={hudStyles.criticalRow}>
+          <Text style={hudStyles.criticalLabel}>{t('dashboard.critical')}</Text>
+          <Text style={hudStyles.criticalAreas}>{data.criticalAreas.join(' · ')}</Text>
+        </View>
+      )}
+      {onPress && <Text style={hudStyles.tapHint}>{t('dashboard.tapForDetails')}</Text>}
+    </TouchableOpacity>
+  );
+}
+
+const hudStyles = StyleSheet.create({
+  container: {
+    backgroundColor: '#0D0D1A', borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: '#1F2937', gap: 8,
+  },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
+  metric: { alignItems: 'center', gap: 2 },
+  label: { fontSize: 10, color: '#6B7280', fontWeight: '700', textTransform: 'uppercase' },
+  value: { fontSize: 26, fontWeight: '900' },
+  verdictText: { fontSize: 11, fontWeight: '700', textAlign: 'center' },
+  divider: { width: 1, height: 36, backgroundColor: '#1F2937' },
+  criticalRow: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1A0D0D', borderRadius: 8, padding: 8 },
+  criticalLabel: { fontSize: 11, color: '#F87171', fontWeight: '700' },
+  criticalAreas: { flex: 1, fontSize: 11, color: '#FCA5A5', textTransform: 'capitalize' },
+  tapHint: { fontSize: 10, color: '#4B5563', textAlign: 'right', fontWeight: '600' },
+});
 
 const LEONARDO = {
   name: 'Leonardo',
@@ -31,6 +102,7 @@ const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3002';
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   const [dashData, setDashData] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -38,6 +110,7 @@ export default function DashboardScreen() {
   const { openCopilot } = useUI();
   const { show: showCheckIn, dismiss: dismissCheckIn } = useDailyCheckIn();
   const [showSearch, setShowSearch] = useState(false);
+  const { data: sweciData, refresh: refreshSWECI } = useSWECI();
 
   const load = useCallback(async () => {
     try {
@@ -53,8 +126,8 @@ export default function DashboardScreen() {
   React.useEffect(() => { load(); }, []);
 
   const handleRefresh = useCallback(async () => {
-    await load();
-  }, [load]);
+    await Promise.all([load(), refreshSWECI()]);
+  }, [load, refreshSWECI]);
 
   return (
     <>
@@ -74,8 +147,8 @@ export default function DashboardScreen() {
       />
 
       <FullScrollLayout
-        title="Dashboard"
-        subtitle="Visão geral do seu universo"
+        title={t('dashboard.title')}
+        subtitle={t('dashboard.subtitle')}
         paddingBottom={insets.bottom + 90}
         onRefresh={handleRefresh}
         rightAction={
@@ -86,6 +159,16 @@ export default function DashboardScreen() {
         }
       >
         <SearchTrigger onPress={() => setShowSearch(true)} />
+        {sweciData && (
+          <Animated.View entering={FadeInDown.delay(0)}>
+            <LifeHealthHUD
+              data={sweciData}
+              onPress={() => router.push('/life-score' as any)}
+            />
+          </Animated.View>
+        )}
+        {/* Foco do dia — ação mais importante segundo SWE-CI */}
+        <TodayFocusCard />
         <DashboardHero data={dashData} onOpenCopilot={openCopilot} />
         <CrossAreaInsights />
         <ShareProgressButton compact />

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import type { DailyInsight } from '@youli/shared';
@@ -9,7 +9,7 @@ interface InsightCardProps { insight: DailyInsight; index?: number; }
 
 const energyVariant = { low: 'yellow', medium: 'blue', high: 'green' } as const;
 
-export function InsightCard({ insight, index = 0 }: InsightCardProps) {
+function InsightCard({ insight, index = 0 }: InsightCardProps) {
   return (
     <Animated.View entering={FadeInDown.delay(index * 80).springify().damping(24).stiffness(220).mass(0.9)} style={[styles.card, shadows.sm]}>
       <View style={styles.header}>
@@ -36,3 +36,5 @@ const styles = StyleSheet.create({
   actions: { marginTop: spacing.sm, gap: 4 },
   action: { fontSize: fontSize.sm, color: colors.purple, fontWeight: fontWeight.semibold },
 });
+
+export default memo(InsightCard);

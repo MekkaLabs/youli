@@ -95,25 +95,25 @@ const DEFAULT_CONFIG: AgentRuntimeConfig = {
   enableArchitectMode: false,
 
   // Sprint F (SWE-CI)
-  enableCILoop: false,
+  enableCILoop: true,              // CI loop ativo — avalia métricas continuamente
   ciLoopSchedule: 'weekly',
-  enableGapAnalyzer: false,
+  enableGapAnalyzer: true,         // Detecta gaps críticos por área
   gapCriticalThreshold: 0.6,
-  enableANCScore: false,
+  enableANCScore: true,            // Average Normalized Change ativo
 
   // Sprint G (SWE-CI)
-  enableRequirementsDoc: false,
-  enableEvolutionTracker: false,
+  enableRequirementsDoc: true,     // Geração de requirement docs por gap
+  enableEvolutionTracker: true,    // Rastreia evolução das métricas ao longo do tempo
   evolutionRetentionDays: 90,
-  enableFailureAttribution: false,
+  enableFailureAttribution: true,  // Atribui causas a falhas de progresso
 
   // Sprint H (SWE-CI)
-  enableMaintainabilityScore: false,
-  enableGoalCheckpoint: false,
+  enableMaintainabilityScore: true,   // Score de sustentabilidade de vida
+  enableGoalCheckpoint: true,         // Detecta metas inativas
   goalInactivityDays: 7,
-  enableParallelEvaluator: false,
+  enableParallelEvaluator: true,      // Avalia todas as 10 áreas em paralelo
   parallelEvalTokenBudgetPerArea: 1200,
-  enableCIWeeklyPipeline: false,
+  enableCIWeeklyPipeline: true,       // Pipeline CI semanal habilitado
 
   toolBundlesByArea: {
     financeiro: ['finance.getSummary'],

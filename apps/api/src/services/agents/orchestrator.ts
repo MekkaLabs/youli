@@ -25,6 +25,8 @@ import { resumeOrchestratorGraph } from './langgraph-orchestrator';
 import { pickModel } from '../kernel/model-policy';
 import { appendEvent } from './event-stream';
 import { createApproval } from './approval-queue';
+import { getRuntimeConfig } from './runtime-config';
+import { evaluateAllAreas } from './parallel-evaluator';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
@@ -191,15 +193,39 @@ export async function morningBriefing(
   const config = getOrchestratorConfig(orchestratorConfig);
   const orchName = context.profile?.orchestratorName || config.name;
   const orchEmoji = context.profile?.orchestratorEmoji || config.emoji;
+  const runtimeConfig = getRuntimeConfig();
+  const userId = context.profile?.name ?? 'default';
 
-  // Consulta agentes principais em paralelo
-  const agentResponses = await multiAgentAnalysis(context, orchestratorConfig);
+  // Consulta agentes principais + Parallel Evaluator em paralelo (Sprint H — SWE-CI)
+  const [agentResponses, parallelEvalResult] = await Promise.all([
+    multiAgentAnalysis(context, orchestratorConfig),
+    runtimeConfig.enableParallelEvaluator
+      ? evaluateAllAreas(
+          userId,
+          context as Record<string, unknown>,
+          runtimeConfig.parallelEvalTokenBudgetPerArea
+        ).catch(() => null)
+      : Promise.resolve(null),
+  ]);
 
   // Agente primário é o de dashboard (visão geral)
   const primaryAgent = agentResponses.find((r) => r.area === 'dashboard') || agentResponses[0];
 
   // Síntese do briefing matinal
-  const synthesis = await synthesizeMorningBriefing(orchName, agentResponses, context);
+  let synthesis = await synthesizeMorningBriefing(orchName, agentResponses, context);
+
+  // Enriquecer síntese com dados do Parallel Evaluator
+  if (parallelEvalResult) {
+    const score = parallelEvalResult.lifeHealthScore;
+    const criticals = parallelEvalResult.criticalAreas;
+    const scoreLine = `\n\n🏥 **Life Health Score: ${score}/100**${criticals.length > 0 ? ` | ⚠️ Crítico: ${criticals.join(', ')}` : ' ✅'}`;
+    synthesis = synthesis + scoreLine;
+  }
+
+  // Consolidar nextSteps: ações dos agentes + prioridades do Parallel Eval
+  const agentActions = agentResponses.flatMap((r) => r.actions).slice(0, 3);
+  const parallelPriorities = parallelEvalResult?.topPriorities.slice(0, 2) ?? [];
+  const nextSteps = [...new Set([...agentActions, ...parallelPriorities])].slice(0, 5);
 
   return {
     orchestratorName: orchName,
@@ -209,7 +235,7 @@ export async function morningBriefing(
     additionalInsights: agentResponses.filter((r) => r.area !== 'dashboard'),
     suggestedAgents: [],
     mood: determineMood(context, primaryAgent),
-    nextSteps: agentResponses.flatMap((r) => r.actions).slice(0, 4),
+    nextSteps,
   };
 }
 

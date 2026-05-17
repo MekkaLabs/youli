@@ -16,6 +16,10 @@ interface ButtonProps {
   fullWidth?: boolean;
   style?: ViewStyle;
   icon?: React.ReactNode;
+  /** Accessibility: override the label read by screen readers */
+  accessibilityLabel?: string;
+  /** Accessibility: additional hint for screen readers */
+  accessibilityHint?: string;
 }
 
 const AnimPressable = Animated.createAnimatedComponent(Pressable);
@@ -23,6 +27,7 @@ const AnimPressable = Animated.createAnimatedComponent(Pressable);
 export function Button({
   label, onPress, variant = 'primary', size = 'md',
   loading, disabled, fullWidth, style, icon,
+  accessibilityLabel, accessibilityHint,
 }: ButtonProps) {
   const scale = useSharedValue(1);
 
@@ -41,6 +46,10 @@ export function Button({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
       style={[
         styles.base,
         styles[variant],
