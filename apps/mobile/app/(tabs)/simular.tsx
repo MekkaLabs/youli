@@ -3,6 +3,7 @@
  * Projeção 30/60/90 dias + IA what-if
  */
 import React, { useState } from 'react';
+import { useI18n } from '../../src/hooks/useI18n';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FullScrollLayout } from '../../src/templates/FullScrollLayout';
@@ -30,24 +31,24 @@ export default function SimularScreen() {
 
   return (
     <FullScrollLayout
-      title="Simular"
-      subtitle="Visualize seu futuro, decida hoje"
+      title={t('simulate.title')}
+      subtitle={t('simulate.subtitle')}
       paddingBottom={insets.bottom + 90}
       rightAction={<AgentBadge {...LEONARDO} compact onPress={onAgentPress} />}
     >
       {/* Tabs */}
       <View style={styles.tabs}>
         {([
-          { id: 'projecao', label: '📈 Projeção 90d' },
-          { id: 'simulador', label: '🎮 Simulador' },
-        ] as { id: TabId; label: string }[]).map(t => (
+          { id: 'projecao' as TabId, label: t('simulate.tabProjection') },
+          { id: 'simulador' as TabId, label: t('simulate.tabSimulator') },
+        ]).map(tabItem => (
           <TouchableOpacity
-            key={t.id}
-            style={[styles.tab, tab === t.id && styles.tabActive]}
-            onPress={() => setTab(t.id)}
+            key={tabItem.id}
+            style={[styles.tab, tab === tabItem.id && styles.tabActive]}
+            onPress={() => setTab(tabItem.id)}
           >
-            <Text style={[styles.tabText, tab === t.id && styles.tabTextActive]}>
-              {t.label}
+            <Text style={[styles.tabText, tab === tabItem.id && styles.tabTextActive]}>
+              {tabItem.label}
             </Text>
           </TouchableOpacity>
         ))}

@@ -28,7 +28,8 @@ export type TranslationKey = Leaves<typeof ptBR>;
 
 // ─── Dictionaries ─────────────────────────────────────────────────────────────
 
-const dictionaries: Record<SupportedLanguage, typeof ptBR> = {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const dictionaries: Record<SupportedLanguage, any> = {
   'pt-BR': ptBR,
   en,
   es,

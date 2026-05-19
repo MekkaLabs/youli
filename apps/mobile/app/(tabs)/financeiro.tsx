@@ -1,6 +1,7 @@
 import { useI18n } from '../../src/hooks/useI18n';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { EmptyState } from '../../src/molecules/EmptyState';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FullScrollLayout } from '../../src/templates/FullScrollLayout';
@@ -51,7 +52,17 @@ export default function FinanceiroScreen() {
       </View>
 
       {tab === 'lancamentos' ? (
-        <FinanceGrid />
+        connections.length === 0 ? (
+          <EmptyState
+            emoji="💳"
+            title="Nenhum banco conectado"
+            body="Conecte sua conta bancária via Open Banking para ver seus lançamentos, gastos por categoria e saldo consolidado aqui."
+            ctaLabel="Conectar banco agora"
+            onCta={() => setTab('contas')}
+          />
+        ) : (
+          <FinanceGrid />
+        )
       ) : (
         <View style={styles.bankingSection}>
           {/* Saldo consolidado */}

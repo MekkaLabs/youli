@@ -23,7 +23,7 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useHabits, type HabitData } from '../../hooks/useHabits';
-import { HabitCard } from '../../molecules/HabitCard';
+import HabitCard from '../../molecules/HabitCard';
 import { StreakMilestone } from '../../molecules/StreakMilestone';
 
 if (Platform.OS === 'android') {

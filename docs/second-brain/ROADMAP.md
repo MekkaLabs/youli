@@ -14,3 +14,12 @@
 - M2: Observabilidade mínima (event stream + métricas) e diagnóstico (diff/snapshots) em produção.
 - M3: UX “happy path” no Mobile (1 ação agente → 1 resposta → 1 insight/efeito visível).
 
+## 2026-05-16
+
+### Linha de produto (macro)
+- Integrações de saúde como alavanca de “evidências”: conectar (OAuth) → sincronizar → transformar em insights (fitness bridge) → exibir evolução/life-score no Mobile.
+- Mobile mais “pronto pra produção”: acessibilidade como camada transversal (tema + provider) e i18n como fundação (pt-BR + idiomas).
+
+### Milestones sugeridos
+- M4: Integrações (Strava/Zepp) estáveis: fluxo de auth, refresh, sync incremental e observabilidade.
+- M5: Modelo de “evolution history / life score” versionado (contratos + cálculo + explicabilidade).

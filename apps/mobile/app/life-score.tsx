@@ -9,9 +9,15 @@ import {
   TouchableOpacity, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { router } from 'expo-router';
-import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import Animated, {
+  FadeInDown, FadeIn,
+  useSharedValue, useAnimatedProps, withTiming, Easing,
+} from 'react-native-reanimated';
+import Svg, { Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaintainabilityBadge } from '../src/molecules/MaintainabilityBadge';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3002';
 
@@ -37,22 +43,53 @@ interface LifeHealthData {
   runtimeFlags: Record<string, boolean>;
 }
 
-function ScoreRing({ score, label, color, size = 80 }: { score: number; label: string; color: string; size?: number }) {
-  const emoji = score >= 70 ? '🟢' : score >= 40 ? '🟡' : '🔴';
+function ScoreRing({ score, label, color, size = 90 }: { score: number; label: string; color: string; size?: number }) {
+  const strokeWidth = 10;
+  const r = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * r;
+  const cx = size / 2;
+  const cy = size / 2;
+
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    progress.value = withTiming(score / 100, { duration: 900, easing: Easing.out(Easing.cubic) });
+  }, [score]);
+
+  const animatedProps = useAnimatedProps(() => ({
+    strokeDashoffset: circumference * (1 - progress.value),
+  }));
+
   return (
-    <View style={[ringStyles.container, { width: size, height: size, borderRadius: size / 2, borderColor: color }]}>
-      <Text style={[ringStyles.score, { color, fontSize: size * 0.28 }]}>{score}</Text>
-      <Text style={ringStyles.emoji}>{emoji}</Text>
-      <Text style={ringStyles.label}>{label}</Text>
+    <View style={[ringStyles.container, { width: size, height: size }]}>
+      <Svg width={size} height={size}>
+        {/* Track */}
+        <Circle cx={cx} cy={cy} r={r} stroke="#1F2937" strokeWidth={strokeWidth} fill="none" />
+        {/* Arc animado */}
+        <AnimatedCircle
+          cx={cx} cy={cy} r={r}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={circumference}
+          animatedProps={animatedProps}
+          strokeLinecap="round"
+          rotation="-90"
+          origin={`${cx}, ${cy}`}
+        />
+      </Svg>
+      <View style={ringStyles.centerContent}>
+        <Text style={[ringStyles.score, { color, fontSize: size * 0.26 }]}>{score}</Text>
+        <Text style={ringStyles.label}>{label}</Text>
+      </View>
     </View>
   );
 }
 
 const ringStyles = StyleSheet.create({
-  container: { borderWidth: 3, alignItems: 'center', justifyContent: 'center', backgroundColor: '#111827' },
-  score: { fontWeight: '900', lineHeight: 28 },
-  emoji: { fontSize: 10 },
-  label: { fontSize: 8, color: '#6B7280', fontWeight: '700', textTransform: 'uppercase', textAlign: 'center', paddingHorizontal: 2 },
+  container: { alignItems: 'center', justifyContent: 'center' },
+  centerContent: { position: 'absolute', alignItems: 'center' },
+  score: { fontWeight: '900' },
+  label: { fontSize: 8, color: '#6B7280', fontWeight: '700', textTransform: 'uppercase', textAlign: 'center', paddingHorizontal: 2, marginTop: -2 },
 });
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -73,6 +110,34 @@ const AREA_ICONS: Record<string, string> = {
   foco: '🎯',
   perfil: '👑',
   dashboard: '🏠',
+};
+
+// Mapeamento de área → rota para navegação dos gap cards
+const AREA_ROUTES: Record<string, string> = {
+  habitos: '/(tabs)/habitos',
+  metas: '/(tabs)/metas',
+  tarefas: '/(tabs)/tarefas',
+  financeiro: '/(tabs)/financeiro',
+  fitness: '/(tabs)/fitness',
+  calendario: '/(tabs)/calendario',
+  insights: '/(tabs)/insights',
+  foco: '/(tabs)/focus',
+  perfil: '/(tabs)/perfil',
+  dashboard: '/(tabs)/dashboard',
+};
+
+// Labels amigáveis para os runtime flags SWE-CI
+const FLAG_LABELS: Record<string, string> = {
+  enableGapAnalyzer: 'Analisador de Gaps',
+  enableANCScore: 'Score ANC',
+  enableMaintainabilityScore: 'Sustentabilidade',
+  enableParallelEvaluator: 'Avaliação Paralela',
+  enableEvolutionTracker: 'Rastreamento de Evolução',
+  enableCILoop: 'CI Contínuo',
+  enableCIWeeklyPipeline: 'Pipeline Semanal',
+  enableRequirementsDoc: 'Docs de Requisitos',
+  enableFailureAttribution: 'Atribuição de Falha',
+  enableGoalCheckpoint: 'Checkpoint de Metas',
 };
 
 export default function LifeScoreScreen() {
@@ -212,19 +277,30 @@ export default function LifeScoreScreen() {
               {data.topGaps.map((gap, i) => {
                 const pColor = PRIORITY_COLORS[gap.priority] ?? '#74b9ff';
                 const icon = AREA_ICONS[gap.area] ?? '📊';
+                const route = AREA_ROUTES[gap.area];
                 return (
-                  <View key={i} style={[styles.gapCard, { borderLeftColor: pColor }]}>
+                  <TouchableOpacity
+                    key={i}
+                    style={[styles.gapCard, { borderLeftColor: pColor }]}
+                    onPress={() => route && router.push(route as any)}
+                    activeOpacity={route ? 0.75 : 1}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Ver área ${gap.area}`}
+                  >
                     <View style={styles.gapHeader}>
                       <Text style={styles.gapArea}>{icon} {gap.area}</Text>
-                      <View style={[styles.gapBadge, { backgroundColor: pColor + '22' }]}>
-                        <Text style={[styles.gapBadgeText, { color: pColor }]}>
-                          {gap.priority} · {Math.round(gap.gapMagnitude * 100)}%
-                        </Text>
+                      <View style={styles.gapHeaderRight}>
+                        <View style={[styles.gapBadge, { backgroundColor: pColor + '22' }]}>
+                          <Text style={[styles.gapBadgeText, { color: pColor }]}>
+                            {gap.priority} · {Math.round(gap.gapMagnitude * 100)}%
+                          </Text>
+                        </View>
+                        {route && <Text style={styles.gapArrow}>→</Text>}
                       </View>
                     </View>
                     <Text style={styles.gapMetric}>{gap.metric}</Text>
                     <Text style={styles.gapRequirement}>{gap.requirement}</Text>
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
             </Animated.View>
@@ -248,7 +324,7 @@ export default function LifeScoreScreen() {
               {Object.entries(data.runtimeFlags).map(([key, active]) => (
                 <View key={key} style={[styles.flagChip, active ? styles.flagChipOn : styles.flagChipOff]}>
                   <Text style={[styles.flagText, active ? styles.flagTextOn : styles.flagTextOff]}>
-                    {active ? '✓' : '○'} {key.replace(/^enable/, '').replace(/([A-Z])/g, ' $1').trim()}
+                    {active ? '✓' : '○'} {FLAG_LABELS[key] ?? key.replace(/^enable/, '').replace(/([A-Z])/g, ' $1').trim()}
                   </Text>
                 </View>
               ))}
@@ -305,9 +381,11 @@ const styles = StyleSheet.create({
   priorityText: { flex: 1, fontSize: 13, color: '#D1D5DB', lineHeight: 20 },
   gapCard: { backgroundColor: '#111827', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#1F2937', borderLeftWidth: 3, gap: 4 },
   gapHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  gapHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   gapArea: { fontSize: 13, color: '#F9FAFB', fontWeight: '800', textTransform: 'capitalize' },
   gapBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
   gapBadgeText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
+  gapArrow: { fontSize: 14, color: '#6B7280', fontWeight: '700' },
   gapMetric: { fontSize: 11, color: '#6B7280', fontWeight: '600' },
   gapRequirement: { fontSize: 12, color: '#D1D5DB', lineHeight: 18 },
   pipelineCard: { backgroundColor: '#0D1A0D', borderRadius: 14, padding: 16, gap: 8, borderWidth: 1, borderColor: '#065F46' },

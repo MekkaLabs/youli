@@ -66,3 +66,5 @@ const styles = StyleSheet.create({
   value: { fontSize: 22, fontWeight: '900', color: '#F9FAFB' },
   label: { fontSize: 10, color: '#6B7280', fontWeight: '700', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.3 },
 });
+
+export default QuickStats;

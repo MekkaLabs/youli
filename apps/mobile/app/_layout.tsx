@@ -9,18 +9,25 @@ import { OfflineBanner } from '../src/atoms/OfflineBanner';
 import { useNetworkStatus } from '../src/hooks/useNetworkStatus';
 import { I18nProvider, useI18n } from '../src/i18n/I18nProvider';
 import { AccessibilityProvider } from '../src/accessibility/AccessibilityProvider';
+import { ThemeProvider, useTheme } from '../src/providers/ThemeProvider';
 import { useNotifications } from '../src/hooks/useNotifications';
+import { AuthProvider } from '../src/hooks/useAuth';
 
-/** Wrapper interno para usar hook dentro da árvore (SafeAreaProvider já disponível) */
+/** Shell principal do app — usa hooks dentro da árvore de providers */
 function AppShell() {
   const { status } = useNetworkStatus();
   const { language } = useI18n();
+  const { isDark } = useTheme();
   useNotifications(language);
 
   return (
     <>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false, animation: 'fade_from_bottom' }}>
+        {/* Tela de login — pública, sem guard */}
+        <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
+
+        {/* Telas protegidas */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ presentation: 'modal' }} />
         <Stack.Screen name="vision" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
@@ -29,8 +36,8 @@ function AppShell() {
         <Stack.Screen name="sweci-settings" options={{ headerShown: false }} />
         <Stack.Screen name="integrations" options={{ headerShown: false }} />
         <Stack.Screen name="accessibility-settings" options={{ headerShown: false }} />
+        <Stack.Screen name="admin" options={{ headerShown: false }} />
       </Stack>
-      {/* Banner de offline — sobrepõe tudo quando sem conexão */}
       <OfflineBanner status={status} />
     </>
   );
@@ -42,15 +49,19 @@ export default function RootLayout() {
     <ErrorBoundary>
       <GHRoot style={{ flex: 1 }}>
         <SafeAreaProvider>
-          <StoreProvider>
-            <AccessibilityProvider>
-              <I18nProvider>
-                <ToastProvider>
-                  <AppShell />
-                </ToastProvider>
-              </I18nProvider>
-            </AccessibilityProvider>
-          </StoreProvider>
+          <AuthProvider>
+            <StoreProvider>
+              <ThemeProvider>
+                <AccessibilityProvider>
+                  <I18nProvider>
+                    <ToastProvider>
+                      <AppShell />
+                    </ToastProvider>
+                  </I18nProvider>
+                </AccessibilityProvider>
+              </ThemeProvider>
+            </StoreProvider>
+          </AuthProvider>
         </SafeAreaProvider>
       </GHRoot>
     </ErrorBoundary>

@@ -269,6 +269,12 @@ export default {
     start: 'Get Started',
     skip: 'Skip',
   },
+  simulate: {
+    title: 'Simulate',
+    subtitle: 'Visualize your future, decide today',
+    tabProjection: '📈 90d Projection',
+    tabSimulator: '🎮 Simulator',
+  },
   errors: {
     generic: 'Something went wrong. Please try again.',
     noInternet: 'No internet connection',

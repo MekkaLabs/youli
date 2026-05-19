@@ -71,6 +71,7 @@ function EmptyState({ days }: { days: number }) {
 }
 
 function SummaryRow({ sequences }: { sequences: EvolutionSequence[] }) {
+  const { t } = useI18n();
   const improving = sequences.filter((s) => s.trendLabel === 'strong_up' || s.trendLabel === 'up').length;
   const declining = sequences.filter((s) => s.trendLabel === 'strong_down' || s.trendLabel === 'down').length;
   const stable    = sequences.length - improving - declining;

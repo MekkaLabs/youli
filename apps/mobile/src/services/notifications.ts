@@ -18,6 +18,8 @@ import type { NotificationTriggerInput } from 'expo-notifications';
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: false,   // sem som — respeitamos reduceMotion/preferências
     shouldSetBadge: true,
   }),

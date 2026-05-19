@@ -332,6 +332,14 @@ export default {
     skip: 'Pular',
   },
 
+  // ─── Simulate ─────────────────────────────────────────────────────────────
+  simulate: {
+    title: 'Simular',
+    subtitle: 'Visualize seu futuro, decida hoje',
+    tabProjection: '📈 Projeção 90d',
+    tabSimulator: '🎮 Simulador',
+  },
+
   // ─── Errors ───────────────────────────────────────────────────────────────
   errors: {
     generic: 'Algo deu errado. Tente novamente.',

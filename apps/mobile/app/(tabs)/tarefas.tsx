@@ -69,6 +69,9 @@ export default function TarefasScreen() {
     backlog: '📋 Backlog',
   };
 
+  // count de filtros ativos (qualquer seleção diferente de 'hoje' conta como filtro adicional)
+  const activeFilterCount = filter !== 'hoje' ? 1 : 0;
+
   const tarefasGap = healthData?.topGaps.find((g) => g.area === 'tarefas');
 
   return (
@@ -139,6 +142,11 @@ export default function TarefasScreen() {
             </Text>
           </TouchableOpacity>
         ))}
+        {activeFilterCount > 0 && (
+          <View style={styles.filterBadge}>
+            <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+          </View>
+        )}
       </Animated.View>
 
       {/* Botão Franklin MIT */}
@@ -189,6 +197,12 @@ const styles = StyleSheet.create({
   filterChipActive: { backgroundColor: '#1C1409', borderColor: '#D97706' },
   filterText: { fontSize: 12, color: '#6B7280', fontWeight: '600' },
   filterTextActive: { color: '#FCD34D', fontWeight: '700' },
+  filterBadge: {
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: '#D97706', alignItems: 'center', justifyContent: 'center',
+    alignSelf: 'center',
+  },
+  filterBadgeText: { fontSize: 11, color: '#fff', fontWeight: '900' },
   analyzeBtn: {
     backgroundColor: '#D97706', borderRadius: 12, padding: 14,
     alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8,

@@ -92,3 +92,5 @@ const styles = StyleSheet.create({
   },
   secondaryText: { color: '#6B7280', fontWeight: '600', fontSize: 13 },
 });
+
+export default EmptyState;

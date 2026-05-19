@@ -1,6 +1,6 @@
 import { useI18n } from '../../src/hooks/useI18n';
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, TextInput, SafeAreaView } from 'react-native';
 import { EmptyState } from '../../src/molecules/EmptyState';
 import { QuickStats } from '../../src/molecules/QuickStats';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -33,7 +33,11 @@ export default function MetasScreen() {
   const [agentResp, setAgentResp] = useState<AgentResponseData | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [pipeline, setPipeline] = useState<PipelineData | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newGoalTitle, setNewGoalTitle] = useState('');
+  const [newGoalTarget, setNewGoalTarget] = useState('100');
   const goals = useGoals();
+  const addGoal = (goals as any).addGoal;
   const goalsArr = (goals as any).goals ?? [];
   const active = goalsArr.filter((g: any) => g.status === 'active');
   const avgProgress = active.length
@@ -102,7 +106,7 @@ export default function MetasScreen() {
           title={t('goals.noGoals')}
           body={t('goals.noGoalsHint')}
           ctaLabel={t('goals.newGoal')}
-          onCta={() => {}}
+          onCta={() => setShowAddModal(true)}
         />
       )}
 
@@ -117,29 +121,6 @@ export default function MetasScreen() {
             { value: goalsArr.filter((g: any) => g.status === 'paused').length, label: t('goals.paused'), icon: '⏸️', color: '#6B7280' },
           ]}
         />
-      )}
-
-      {/* Overview de progresso */}
-      {active.length > 0 && (
-        <Animated.View entering={FadeInDown.delay(0)} style={styles.overviewCard}>
-          <View style={styles.overviewRow}>
-            <View>
-              <Text style={styles.overviewLabel}>Metas ativas</Text>
-              <Text style={styles.overviewValue}>{active.length}</Text>
-            </View>
-            <View>
-              <Text style={styles.overviewLabel}>Progresso médio</Text>
-              <Text style={[styles.overviewValue, { color: avgProgress >= 50 ? '#DC2626' : '#D97706' }]}>{avgProgress}%</Text>
-            </View>
-            <View>
-              <Text style={styles.overviewLabel}>Concluídas</Text>
-              <Text style={styles.overviewValue}>{goalsArr.filter((g: any) => g.status === 'completed').length}</Text>
-            </View>
-          </View>
-          <View style={styles.progressTrack}>
-            <Animated.View style={[styles.progressFill, { width: `${avgProgress}%` }]} />
-          </View>
-        </Animated.View>
       )}
 
       {/* SWE-CI: Evolution Chart de progresso */}
@@ -191,6 +172,61 @@ export default function MetasScreen() {
       )}
 
       <GoalBoard />
+
+      {/* Modal: adicionar meta rápida */}
+      <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowAddModal(false)}>
+        <SafeAreaView style={addStyles.safe}>
+          <View style={addStyles.header}>
+            <Text style={addStyles.title}>⚔️ Nova Meta</Text>
+            <TouchableOpacity onPress={() => setShowAddModal(false)}><Text style={addStyles.cancel}>Cancelar</Text></TouchableOpacity>
+          </View>
+          <View style={addStyles.body}>
+            <Text style={addStyles.label}>Nome da meta</Text>
+            <TextInput
+              style={addStyles.input}
+              value={newGoalTitle}
+              onChangeText={setNewGoalTitle}
+              placeholder="Ex: Ler 12 livros este ano"
+              placeholderTextColor="#4B5563"
+              autoFocus
+              maxLength={60}
+            />
+            <Text style={addStyles.label}>Valor alvo</Text>
+            <TextInput
+              style={addStyles.input}
+              value={newGoalTarget}
+              onChangeText={setNewGoalTarget}
+              placeholder="100"
+              placeholderTextColor="#4B5563"
+              keyboardType="numeric"
+              maxLength={10}
+            />
+            <TouchableOpacity
+              style={[addStyles.saveBtn, !newGoalTitle.trim() && { opacity: 0.5 }]}
+              disabled={!newGoalTitle.trim()}
+              onPress={() => {
+                if (newGoalTitle.trim() && addGoal) {
+                  addGoal({
+                    title: newGoalTitle.trim(),
+                    emoji: '🎯',
+                    color: '#DC2626',
+                    category: 'pessoal',
+                    currentValue: 0,
+                    targetValue: parseFloat(newGoalTarget) || 100,
+                    unit: '%',
+                    progress: 0,
+                    startDate: new Date().toISOString().split('T')[0],
+                  });
+                }
+                setNewGoalTitle('');
+                setNewGoalTarget('100');
+                setShowAddModal(false);
+              }}>
+              <Text style={addStyles.saveBtnText}>Criar Meta</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </FullScrollLayout>
   );
 }
@@ -210,4 +246,16 @@ const styles = StyleSheet.create({
     alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8,
   },
   analyzeBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
+});
+
+const addStyles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#030712' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#111827' },
+  title: { fontSize: 18, fontWeight: '900', color: '#F9FAFB' },
+  cancel: { fontSize: 15, color: '#DC2626', fontWeight: '700' },
+  body: { padding: 20, gap: 14 },
+  label: { fontSize: 12, color: '#6B7280', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  input: { backgroundColor: '#111827', borderRadius: 12, borderWidth: 1, borderColor: '#1F2937', padding: 14, color: '#F9FAFB', fontSize: 16 },
+  saveBtn: { backgroundColor: '#DC2626', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 8 },
+  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
 });

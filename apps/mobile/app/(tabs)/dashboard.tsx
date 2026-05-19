@@ -100,11 +100,17 @@ const LEONARDO = {
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3002';
 
+function getTimeGreeting() {
+  const h = new Date().getHours();
+  return h < 12 ? 'Bom dia ☀️' : h < 18 ? 'Boa tarde 🌤' : 'Boa noite 🌙';
+}
+
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useI18n();
   const [dashData, setDashData] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [greeting] = useState(() => getTimeGreeting());
   const [showNotifications, setShowNotifications] = useState(false);
   const { unreadCount } = useSmartNotifications();
   const { openCopilot } = useUI();
@@ -147,7 +153,7 @@ export default function DashboardScreen() {
       />
 
       <FullScrollLayout
-        title={t('dashboard.title')}
+        title={greeting}
         subtitle={t('dashboard.subtitle')}
         paddingBottom={insets.bottom + 90}
         onRefresh={handleRefresh}
@@ -159,12 +165,23 @@ export default function DashboardScreen() {
         }
       >
         <SearchTrigger onPress={() => setShowSearch(true)} />
-        {sweciData && (
+        {sweciData ? (
           <Animated.View entering={FadeInDown.delay(0)}>
             <LifeHealthHUD
               data={sweciData}
               onPress={() => router.push('/life-score' as any)}
             />
+          </Animated.View>
+        ) : (
+          <Animated.View entering={FadeInDown.delay(0)} style={skeletonStyles.container}>
+            <View style={skeletonStyles.row}>
+              {[1,2,3].map(i => (
+                <View key={i} style={skeletonStyles.metric}>
+                  <View style={skeletonStyles.labelBar} />
+                  <View style={skeletonStyles.valueBar} />
+                </View>
+              ))}
+            </View>
           </Animated.View>
         )}
         {/* Foco do dia — ação mais importante segundo SWE-CI */}
@@ -176,3 +193,14 @@ export default function DashboardScreen() {
     </>
   );
 }
+
+const skeletonStyles = StyleSheet.create({
+  container: {
+    backgroundColor: '#0D0D1A', borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: '#1F2937',
+  },
+  row: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
+  metric: { alignItems: 'center', gap: 8 },
+  labelBar: { width: 56, height: 9, backgroundColor: '#1F2937', borderRadius: 4 },
+  valueBar: { width: 40, height: 28, backgroundColor: '#1F2937', borderRadius: 6 },
+});

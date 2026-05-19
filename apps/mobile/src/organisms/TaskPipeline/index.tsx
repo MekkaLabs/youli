@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import type { Task } from '@youli/shared';
-import { TaskCard } from '../../molecules/TaskCard';
+import TaskCard from '../../molecules/TaskCard';
 import { colors, fontWeight, fontSize, radii, spacing } from '../../theme/tokens';
 
 type Filter = 'all' | 'todo' | 'doing' | 'done';

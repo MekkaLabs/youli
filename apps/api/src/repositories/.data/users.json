@@ -1,0 +1,20 @@
+[
+  {
+    "id": "user-gusta-001",
+    "name": "Gustavo Vicente",
+    "email": "gustav0.v1c3nt3@gmail.com",
+    "password": "youli2024",
+    "role": "admin",
+    "avatar": null,
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "user-amiga-002",
+    "name": "Convidada",
+    "email": "amiga@youli.app",
+    "password": "youli2024",
+    "role": "user",
+    "avatar": null,
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  }
+]

@@ -3,6 +3,7 @@
  * Agente: Hipócrates (saúde e vitalidade)
  */
 import React, { useState, useEffect } from 'react';
+import { useI18n } from '../../src/hooks/useI18n';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,6 +44,12 @@ export default function FitnessScreen() {
   const weeklyActivities = workouts.length;
   const lastWorkout = workouts[0];
   const consistency = weeklyActivities >= 3 ? 'alta' : weeklyActivities >= 1 ? 'média' : 'baixa';
+
+  // Dados reais de distância e FC (Strava/Zepp via /api/fitness/summary)
+  const totalDistanceKm = workouts.reduce((acc, w) => acc + (w.distanceKm ?? 0), 0);
+  const avgHR = workouts.filter(w => w.avgHeartRate).length > 0
+    ? Math.round(workouts.filter(w => w.avgHeartRate).reduce((a, w) => a + (w.avgHeartRate ?? 0), 0) / workouts.filter(w => w.avgHeartRate).length)
+    : (summary?.today?.heartRateAvg ?? 0);
 
   // Pontos de evolução baseados em duração dos treinos
   const evolutionPoints: EvolutionPoint[] = workouts.slice(0, 10).map((w, i) => ({
@@ -101,7 +108,7 @@ export default function FitnessScreen() {
       paddingBottom={insets.bottom + 90}
       rightAction={<AgentBadge {...HIPOCRATES} compact onPress={analyzeFitness} />}
     >
-      {/* Stats de consistência */}
+      {/* Stats de consistência + dados reais Strava/Zepp */}
       <Animated.View entering={FadeInDown.delay(0)} style={styles.consistencyCard}>
         <View style={styles.consistencyStat}>
           <Text style={styles.consistencyNum}>{weeklyActivities}</Text>
@@ -117,12 +124,30 @@ export default function FitnessScreen() {
           <Text style={styles.consistencyLabel}>consistência{'\n'}{consistency}</Text>
         </View>
         <View style={styles.consistencyDivider} />
-        <View style={styles.consistencyStat}>
-          <Text style={styles.consistencyNum}>
-            {lastWorkout ? new Date(lastWorkout.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'}
-          </Text>
-          <Text style={styles.consistencyLabel}>último{'\n'}treino</Text>
-        </View>
+        {totalDistanceKm > 0 ? (
+          <View style={styles.consistencyStat}>
+            <Text style={[styles.consistencyNum, { color: '#0EA5E9' }]}>
+              {totalDistanceKm.toFixed(1)}km
+            </Text>
+            <Text style={styles.consistencyLabel}>distância{'\n'}total</Text>
+          </View>
+        ) : (
+          <View style={styles.consistencyStat}>
+            <Text style={styles.consistencyNum}>
+              {lastWorkout ? new Date(lastWorkout.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'}
+            </Text>
+            <Text style={styles.consistencyLabel}>último{'\n'}treino</Text>
+          </View>
+        )}
+        {avgHR > 0 && (
+          <>
+            <View style={styles.consistencyDivider} />
+            <View style={styles.consistencyStat}>
+              <Text style={[styles.consistencyNum, { color: '#DC2626' }]}>{avgHR}</Text>
+              <Text style={styles.consistencyLabel}>FC média{'\n'}bpm</Text>
+            </View>
+          </>
+        )}
       </Animated.View>
 
       {/* SWE-CI: Maintainability — saúde do ritmo de vida */}

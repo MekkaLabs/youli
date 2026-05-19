@@ -269,6 +269,12 @@ export default {
     start: '开始使用',
     skip: '跳过',
   },
+  simulate: {
+    title: '模拟',
+    subtitle: '可视化你的未来，今天做决定',
+    tabProjection: '📈 90天预测',
+    tabSimulator: '🎮 模拟器',
+  },
   errors: {
     generic: '出现问题，请重试。',
     noInternet: '无网络连接',

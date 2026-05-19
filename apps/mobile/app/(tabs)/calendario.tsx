@@ -3,6 +3,8 @@
  * Agente: Nikola Tesla (energia e tempo)
  */
 import React, { useState } from 'react';
+import { useI18n } from '../../src/hooks/useI18n';
+import { router } from 'expo-router';
 import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
@@ -101,7 +103,13 @@ export default function CalendarioScreen() {
             Fonte: {source === 'api' ? '☁️ Google Calendar' : source === 'native' ? '📱 Calendário nativo' : '📋 Demo'}
           </Text>
           {source === 'mock' && (
-            <Text style={styles.connectHint}>Conecte o Google Calendar para dados reais</Text>
+            <TouchableOpacity
+              onPress={() => router.push('/integrations' as any)}
+              accessibilityRole="button"
+              accessibilityLabel="Conectar Google Calendar"
+            >
+              <Text style={styles.connectHint}>Conecte o Google Calendar para dados reais →</Text>
+            </TouchableOpacity>
           )}
         </View>
       </Animated.View>

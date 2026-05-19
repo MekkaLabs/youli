@@ -57,6 +57,7 @@ function IntegrationCard({
   onConnect, onSync, onDisconnect, syncing,
 }: IntegrationCardProps) {
   const isConnected = status.connected && !status.isExpired;
+  const { t } = useI18n();
   const isPlanned   = !!status.planned;
 
   const syncLabel = status.syncedAt

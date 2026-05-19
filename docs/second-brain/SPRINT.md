@@ -20,3 +20,20 @@
 - Criar/atualizar runbook de execução local e flags/config do runtime (onde habilita/desabilita recursos).
 - Validar fluxo ponta-a-ponta: Mobile → API → Orchestrator (um caso feliz + um caso com aprovação pendente).
 
+## 2026-05-16
+
+### Entregue / Mudou
+- Backend: adicionou endpoints e serviços para integrações de saúde (Strava/Zepp) + “fitness bridge” e um resumo de fitness (`apps/api/app/api/integrations/*`, `apps/api/app/api/fitness/summary/*`, `apps/api/src/services/integrations/*`).
+- Backend (Copilot): novas rotas para histórico de evolução e “life/health” (`apps/api/app/api/copilot/evolution-history/*`, `apps/api/app/api/copilot/life-health/*`).
+- Mobile: adicionou telas e cards voltados a evolução (ex.: `life-score`, `evolution-history`, integrações) e reforçou acessibilidade (provider + tema acessível) (`apps/mobile/src/accessibility/*`, `apps/mobile/src/theme/accessibleTheme.ts`).
+- Mobile: adicionou i18n (pt-BR/en/es/zh) + provider e expandiu notificações e configurações (ex.: SWECI) (`apps/mobile/src/i18n/*`, `apps/mobile/src/services/notifications.ts`, `apps/mobile/app/sweci-settings.tsx`).
+
+### Riscos / Dívidas
+- Integrações OAuth + sync: validar renovação de token, rate limits, retries e armazenamento seguro (Strava/Zepp).
+- Contratos Mobile↔API: garantir consistência de payloads/status (incl. “syncing”, “last synced at”) e erros amigáveis.
+- Acessibilidade/i18n: revisar cobertura real (labels, contraste, strings faltantes) e fluxo de fallback por locale.
+
+### Próximos passos (sugestão)
+- Definir “happy path” de integrações: conectar → sync → exibir resumo + evolução no Mobile.
+- Escrever runbook mínimo: como rodar sync local (variáveis/rotas) e como depurar falhas.
+- Criar smoke tests (ou checklist) para rotas novas de integrações e Copilot (status + auth + payload).

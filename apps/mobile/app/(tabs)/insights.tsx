@@ -2,7 +2,10 @@
  * Insights — padrões de vida gerados por IA
  * Sócrates analisa hábitos, metas, finanças e padrões cross-área
  */
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
+import { useI18n } from '../../src/hooks/useI18n';
+import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ActivityIndicator, ScrollView,
@@ -24,6 +27,23 @@ interface GapInsight {
   gapMagnitude: number;
   priority: string;
   requirement: string;
+}
+
+// Mapeia string de ação para rota ou callback
+function resolveActionRoute(action: string): string | null {
+  const lower = action.toLowerCase();
+  if (lower.includes('hábito') || lower.includes('habito')) return '/(tabs)/habitos';
+  if (lower.includes('meta')) return '/(tabs)/metas';
+  if (lower.includes('financ') || lower.includes('gasto') || lower.includes('renda')) return '/(tabs)/financeiro';
+  if (lower.includes('fitness') || lower.includes('saúde') || lower.includes('treino') || lower.includes('exerc')) return '/(tabs)/fitness';
+  if (lower.includes('foco') || lower.includes('pomodoro') || lower.includes('timer')) return '/(tabs)/focus';
+  if (lower.includes('calend') || lower.includes('agenda') || lower.includes('evento')) return '/(tabs)/calendario';
+  if (lower.includes('simul') || lower.includes('projeção') || lower.includes('projecao')) return '/(tabs)/simular';
+  if (lower.includes('tarefa') || lower.includes('task')) return '/(tabs)/tarefas';
+  if (lower.includes('life score') || lower.includes('score')) return '/life-score';
+  if (lower.includes('evolução') || lower.includes('evolucao') || lower.includes('histórico')) return '/evolution-history';
+  if (lower.includes('integr')) return '/integrations';
+  return null;
 }
 
 const SOCRATES = {
@@ -50,7 +70,7 @@ function TrendBadge({ trend }: { trend?: 'up' | 'down' | 'stable' }) {
   return <Text style={[styles.trend, { color: t.color }]}>{t.icon}</Text>;
 }
 
-function InsightCardAI({ insight, index }: { insight: AIInsight; index: number }) {
+function InsightCardAI({ insight, index, onDismiss }: { insight: AIInsight; index: number; onDismiss: (id: string) => void }) {
   const cfg = TYPE_CONFIG[insight.type] ?? TYPE_CONFIG.pattern;
   return (
     <Animated.View entering={FadeInDown.delay(index * 80)} style={[styles.card, { borderLeftColor: cfg.color }]}>
@@ -61,6 +81,15 @@ function InsightCardAI({ insight, index }: { insight: AIInsight; index: number }
         <View style={styles.agentRow}>
           <Text style={styles.agentEmoji}>{insight.agentEmoji}</Text>
           <Text style={styles.agentName}>{insight.agent}</Text>
+          <TouchableOpacity
+            onPress={() => onDismiss(insight.id)}
+            style={styles.dismissBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Descartar insight"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.dismissIcon}>✕</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -77,15 +106,25 @@ function InsightCardAI({ insight, index }: { insight: AIInsight; index: number }
       <Text style={styles.cardContent}>{insight.content}</Text>
 
       <View style={styles.actions}>
-        {insight.actions.map((action, i) => (
-          <TouchableOpacity key={i} style={[styles.actionBtn, { borderColor: cfg.color }]}>
-            <Text style={[styles.actionText, { color: cfg.color }]}>{action}</Text>
-          </TouchableOpacity>
-        ))}
+        {insight.actions.map((action, i) => {
+          const route = resolveActionRoute(action);
+          return (
+            <TouchableOpacity
+              key={i}
+              style={[styles.actionBtn, { borderColor: cfg.color }]}
+              onPress={() => route && router.push(route as any)}
+              activeOpacity={route ? 0.7 : 1}
+            >
+              <Text style={[styles.actionText, { color: cfg.color }]}>{action}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </Animated.View>
   );
 }
+
+const DISMISSED_KEY = '@youli:dismissed_insights';
 
 export default function InsightsScreen() {
   const { t } = useI18n();
@@ -94,6 +133,26 @@ export default function InsightsScreen() {
   const { insights, loading, lastUpdated, refresh } = useInsights();
   const [energyFilter, setEnergyFilter] = React.useState<'all' | 'alta' | 'media' | 'baixa'>('all');
   const [topGaps, setTopGaps] = React.useState<GapInsight[]>([]);
+  const [dismissedIds, setDismissedIds] = React.useState<Set<string>>(new Set());
+
+  // Carrega IDs descartados do AsyncStorage
+  useEffect(() => {
+    AsyncStorage.getItem(DISMISSED_KEY)
+      .then((raw) => {
+        if (raw) setDismissedIds(new Set(JSON.parse(raw)));
+      })
+      .catch(() => {});
+  }, []);
+
+  // Persiste dismiss no AsyncStorage
+  const handleDismiss = useCallback(async (id: string) => {
+    setDismissedIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      AsyncStorage.setItem(DISMISSED_KEY, JSON.stringify([...next])).catch(() => {});
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/copilot/life-health?userId=default`)
@@ -102,7 +161,8 @@ export default function InsightsScreen() {
       .catch(() => {});
   }, []);
 
-  const filtered = energyFilter === 'all' ? insights : insights.filter(i => i.energy === energyFilter);
+  const activeInsights = insights.filter(i => !dismissedIds.has(i.id));
+  const filtered = energyFilter === 'all' ? activeInsights : activeInsights.filter(i => i.energy === energyFilter);
 
   function timeLabel(iso: string | null) {
     if (!iso) return '';
@@ -155,7 +215,7 @@ export default function InsightsScreen() {
       {/* Header */}
       <View style={styles.headerRow}>
         <Text style={styles.headerLabel}>
-          {loading ? 'Analisando...' : `${insights.length} insights${lastUpdated ? ` · ${timeLabel(lastUpdated)}` : ''}`}
+          {loading ? 'Analisando...' : `${activeInsights.length} insights${dismissedIds.size > 0 ? ` · ${dismissedIds.size} descartados` : ''}${lastUpdated ? ` · ${timeLabel(lastUpdated)}` : ''}`}
         </Text>
         <TouchableOpacity onPress={refresh} style={styles.refreshBtn} disabled={loading}>
           {loading
@@ -194,7 +254,7 @@ export default function InsightsScreen() {
         </View>
       ) : (
         filtered.map((insight, i) => (
-          <InsightCardAI key={insight.id} insight={insight} index={i} />
+          <InsightCardAI key={insight.id} insight={insight} index={i} onDismiss={handleDismiss} />
         ))
       )}
     </FullScrollLayout>
@@ -221,6 +281,8 @@ const styles = StyleSheet.create({
   agentRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   agentEmoji: { fontSize: 14 },
   agentName: { fontSize: 11, color: '#9CA3AF', fontWeight: '600' },
+  dismissBtn: { marginLeft: 6, padding: 2 },
+  dismissIcon: { fontSize: 12, color: '#4B5563', fontWeight: '700' },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   cardTitle: { flex: 1, fontSize: 15, fontWeight: '800', color: '#F9FAFB' },
   scoreChip: { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: '#1F2937', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },

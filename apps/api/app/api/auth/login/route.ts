@@ -12,12 +12,12 @@ export async function POST(req: Request) {
   }
 
   const res = NextResponse.json({ ok: true, user });
-  res.cookies.set(getSessionCookieName(), `${user.id}:${user.role || 'user'}`, {
+  res.cookies.set(getSessionCookieName(), `${user.id}:${user.role}`, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: false,
+    secure: process.env.NODE_ENV === 'production',
     path: '/',
-    maxAge: 60 * 60 * 12
+    maxAge: 60 * 60 * 24 * 30 // 30 dias
   });
 
   return res;

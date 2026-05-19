@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useGoals, type GoalData } from '../../hooks/useGoals';
-import { GoalCard } from '../../molecules/GoalCard';
+import GoalCard from '../../molecules/GoalCard';
 
 type FilterType = 'all' | 'active' | 'completed' | 'at_risk';
 
@@ -210,7 +210,7 @@ export function GoalBoard() {
               status={goalStatus(goal)}
               progressPercent={progressPercent(goal.currentValue, goal.targetValue)}
               daysUntil={daysUntil(goal.deadline)}
-              onUpdateProgress={(v) => updateProgress(goal.id, v)}
+              onUpdateProgress={(v: number) => updateProgress(goal.id, v)}
             />
             <TouchableOpacity
               style={styles.deleteGoalBtn}

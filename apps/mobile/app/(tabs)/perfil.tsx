@@ -8,6 +8,7 @@ import {
   Switch, ScrollView, TextInput,
 } from 'react-native';
 import { useI18n, SUPPORTED_LANGUAGES, LANGUAGE_LABELS } from '../../src/hooks/useI18n';
+import { useTheme } from '../../src/providers/ThemeProvider';
 import { router } from 'expo-router';
 import Animated, { FadeInDown, SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,6 +24,8 @@ import { useHabits } from '../../src/hooks/useHabits';
 import { useGoals } from '../../src/hooks/useGoals';
 import { useWeeklyReview } from '../../src/hooks/useWeeklyReview';
 import { useXP } from '../../src/hooks/useXP';
+import { useSWECI } from '../../src/hooks/useSWECI';
+import { useAuthContext } from '../../src/hooks/useAuth';
 import type { PersonaId } from '../../src/store';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3002';
@@ -43,6 +46,7 @@ export default function PerfilScreen() {
   const { xpData, achievements } = useXP();
   const { shouldShow: showReview, openManually, saveReview, dismiss } = useWeeklyReview();
   const { language, setLanguage } = useI18n();
+  const { isDark, toggleTheme, mode } = useTheme();
 
   const [showOrch, setShowOrch] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -172,6 +176,8 @@ export default function PerfilScreen() {
 
   const habits = useHabits();
   const goals = useGoals();
+  const { getAreaGap, lifeHealthScore } = useSWECI();
+  const { isAdmin, logout } = useAuthContext();
 
   const habitsArr = (habits as any).habits ?? [];
   const goalsArr = (goals as any).goals ?? [];
@@ -188,11 +194,18 @@ export default function PerfilScreen() {
     ? Math.round(activeGoals.reduce((s: number, g: any) => s + (g.progress ?? 0), 0) / activeGoals.length)
     : 50;
 
+  // Scores derivados do SWE-CI: gap → score inverso (sem gap = 80+, com gap crítico = 40)
+  function gapToScore(area: string, fallback: number): number {
+    const gap = getAreaGap(area);
+    if (!gap) return lifeHealthScore > 0 ? Math.min(fallback + 10, 95) : fallback;
+    return Math.max(20, Math.round(100 - gap.gapMagnitude * 100));
+  }
+
   const LIFE_AREAS = [
     { label: 'Hábitos', progress: habitScore, icon: '🔥' },
     { label: 'Metas', progress: goalScore, icon: '🎯' },
-    { label: 'Finanças', progress: 55, icon: '💰' },
-    { label: 'Fitness', progress: 70, icon: '💪' },
+    { label: 'Finanças', progress: gapToScore('financeiro', 55), icon: '💰' },
+    { label: 'Fitness', progress: gapToScore('fitness', 70), icon: '💪' },
     { label: 'Aprendizado', progress: Math.min(xpData.level * 10, 100), icon: '📚' },
     { label: 'Conquistas', progress: Math.round((unlockedAch / Math.max(achievements.length, 1)) * 100), icon: '🏆' },
   ];
@@ -317,6 +330,39 @@ export default function PerfilScreen() {
         >
           <Text style={styles.actionIcon}>♿</Text>
           <Text style={styles.actionLabel}>Acesso</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={toggleTheme}
+          style={styles.actionBtn}
+          accessibilityRole="button"
+          accessibilityLabel={isDark ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
+        >
+          <Text style={styles.actionIcon}>{isDark ? '☀️' : '🌙'}</Text>
+          <Text style={styles.actionLabel}>{isDark ? 'Claro' : 'Escuro'}</Text>
+        </TouchableOpacity>
+
+        {/* Painel admin — só aparece para usuários admin */}
+        {isAdmin && (
+          <TouchableOpacity
+            onPress={() => router.push('/admin' as any)}
+            style={[styles.actionBtn, { borderColor: '#7C3AED', borderWidth: 1 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Painel administrativo"
+          >
+            <Text style={styles.actionIcon}>👑</Text>
+            <Text style={[styles.actionLabel, { color: '#C4B5FD' }]}>Admin</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Logout */}
+        <TouchableOpacity
+          onPress={async () => { await logout(); router.replace('/login' as any); }}
+          style={[styles.actionBtn, { borderColor: '#F87171', borderWidth: 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Sair da conta"
+        >
+          <Text style={styles.actionIcon}>🚪</Text>
+          <Text style={[styles.actionLabel, { color: '#F87171' }]}>Sair</Text>
         </TouchableOpacity>
       </Animated.View>
 
@@ -544,8 +590,8 @@ const styles = StyleSheet.create({
   areaTrack: { height: 5, backgroundColor: '#1F2937', borderRadius: 3, overflow: 'hidden' },
   areaFill: { height: 5, backgroundColor: '#7C3AED', borderRadius: 3 },
   areaPct: { fontSize: 12, color: '#6B7280', fontWeight: '700', minWidth: 32, textAlign: 'right' },
-  actionsGrid: { flexDirection: 'row', gap: 8 },
-  actionBtn: { flex: 1, backgroundColor: '#111827', borderRadius: 12, padding: 14, alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#1F2937' },
+  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  actionBtn: { width: '30%', flexGrow: 1, backgroundColor: '#111827', borderRadius: 12, padding: 14, alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#1F2937' },
   actionIcon: { fontSize: 22 },
   actionLabel: { fontSize: 11, color: '#9CA3AF', fontWeight: '700', textAlign: 'center' },
   modalSafe: { flex: 1, backgroundColor: '#030712' },
