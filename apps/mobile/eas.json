@@ -19,7 +19,7 @@
       "ios": { "simulator": false },
       "android": { "buildType": "apk" },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api-staging.youli.app"
+        "EXPO_PUBLIC_API_URL": "https://youli-obvcugys1-mekkalabs-projects.vercel.app"
       }
     },
     "production": {
