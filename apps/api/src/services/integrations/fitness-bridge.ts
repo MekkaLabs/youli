@@ -159,12 +159,12 @@ export interface FitnessSummary {
   lastSyncAt: string | null;
 }
 
-export function buildFitnessSummary(): FitnessSummary {
-  const stravaConnected = loadStravaToken() !== null;
-  const zeppConnected   = loadZeppToken() !== null;
+export function buildFitnessSummary(userId: string): FitnessSummary {
+  const stravaConnected = loadStravaToken(userId) !== null;
+  const zeppConnected   = loadZeppToken(userId) !== null;
 
-  const stravaActivities = loadCachedStravaActivities();
-  const zeppCache        = loadCachedZeppHealth();
+  const stravaActivities = loadCachedStravaActivities(userId);
+  const zeppCache        = loadCachedZeppHealth(userId);
 
   const workouts = [
     ...stravaActivities.slice(0, 10),
@@ -179,7 +179,7 @@ export function buildFitnessSummary(): FitnessSummary {
     exerciseMin:      zeppCache?.normalized.exerciseMin ?? 0,
   };
 
-  const lastSyncAt = zeppCache?.snapshot.syncedAt ?? loadZeppToken()?.syncedAt ?? null;
+  const lastSyncAt = zeppCache?.snapshot.syncedAt ?? loadZeppToken(userId)?.syncedAt ?? null;
 
   return {
     sources: { strava: stravaConnected, zepp: zeppConnected, healthkit: false },

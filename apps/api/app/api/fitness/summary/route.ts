@@ -10,7 +10,7 @@ export async function GET() {
   const auth = await requireAuth();
   if (auth.error) return auth.response;
   try {
-    const summary = buildFitnessSummary();
+    const summary = buildFitnessSummary(auth.user.id);
     return NextResponse.json(summary);
   } catch (err) {
     return jsonError('Erro ao agregar dados de fitness', 500, err, 'GET /api/fitness/summary');

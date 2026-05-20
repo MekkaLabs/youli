@@ -135,6 +135,45 @@ export function getSessionTtlSeconds(): number {
   return SESSION_TTL_SECONDS;
 }
 
+// ──────────────────────────────────────────────
+// STATE DE OAUTH (curto, assinado) — carrega o userId pelo fluxo OAuth
+// ──────────────────────────────────────────────
+
+/** TTL curto do state de OAuth (10 min) — suficiente para concluir o consent. */
+const OAUTH_STATE_TTL_SECONDS = 600;
+
+/**
+ * Assina um `state` para OAuth carregando o userId. NÃO use o token de sessão
+ * como state (vazaria a credencial na URL do provedor). Este state é curto e
+ * só serve para reidentificar o usuário no callback público.
+ */
+export function signOAuthState(userId: string): string {
+  const now = Math.floor(Date.now() / 1000);
+  const payload = { uid: userId, exp: now + OAUTH_STATE_TTL_SECONDS };
+  const b64 = base64url(JSON.stringify(payload));
+  return `${b64}.${hmac(b64)}`;
+}
+
+/** Verifica o state e retorna o userId, ou null se inválido/expirado. */
+export function verifyOAuthState(state: string): string | null {
+  const parts = state.split('.');
+  if (parts.length !== 2) return null;
+  const [b64, sig] = parts;
+  if (!b64 || !sig) return null;
+  const expected = hmac(b64);
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(b64, 'base64url').toString('utf8')) as { uid?: string; exp?: number };
+    if (!payload.uid) return null;
+    if (typeof payload.exp !== 'number' || payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload.uid;
+  } catch {
+    return null;
+  }
+}
+
 function readUsers(): StoredUser[] {
   if (!fs.existsSync(USERS_PATH)) {
     const defaults: StoredUser[] = [

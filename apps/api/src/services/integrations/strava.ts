@@ -63,7 +63,17 @@ const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token';
 const STRAVA_API_BASE  = 'https://www.strava.com/api/v3';
 
 const DATA_DIR = path.join(process.cwd(), 'src', 'repositories', '.data');
-const TOKEN_FILE = path.join(DATA_DIR, 'strava-token.json');
+const STRAVA_DIR = path.join(DATA_DIR, 'strava');
+
+function safeId(userId: string): string {
+  return userId.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+function tokenFile(userId: string): string {
+  return path.join(STRAVA_DIR, `${safeId(userId)}-token.json`);
+}
+function activitiesFile(userId: string): string {
+  return path.join(STRAVA_DIR, `${safeId(userId)}-activities.json`);
+}
 
 const SPORT_EMOJI: Record<string, string> = {
   Run: '🏃', Ride: '🚴', Swim: '🏊', WeightTraining: '🏋️',
@@ -74,24 +84,25 @@ const SPORT_EMOJI: Record<string, string> = {
 
 // ─── Token Storage ────────────────────────────────────────────────────────────
 
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+function ensureDir() {
+  if (!fs.existsSync(STRAVA_DIR)) fs.mkdirSync(STRAVA_DIR, { recursive: true });
 }
 
-export function loadStravaToken(): StravaToken | null {
-  if (!fs.existsSync(TOKEN_FILE)) return null;
+export function loadStravaToken(userId: string): StravaToken | null {
+  const file = tokenFile(userId);
+  if (!fs.existsSync(file)) return null;
   try {
-    return JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf-8')) as StravaToken;
+    return JSON.parse(fs.readFileSync(file, 'utf-8')) as StravaToken;
   } catch { return null; }
 }
 
-function saveStravaToken(token: StravaToken) {
-  ensureDataDir();
-  fs.writeFileSync(TOKEN_FILE, JSON.stringify(token, null, 2), 'utf-8');
+function saveStravaToken(userId: string, token: StravaToken) {
+  ensureDir();
+  fs.writeFileSync(tokenFile(userId), JSON.stringify(token, null, 2), 'utf-8');
 }
 
-export function isStravaConnected(): boolean {
-  return loadStravaToken() !== null;
+export function isStravaConnected(userId: string): boolean {
+  return loadStravaToken(userId) !== null;
 }
 
 // ─── OAuth2 Flow ──────────────────────────────────────────────────────────────
@@ -111,21 +122,24 @@ export function getStravaAuthUrl(redirectUri: string, state?: string): string {
 
 export async function exchangeStravaCode(
   code: string,
-  redirectUri: string
+  redirectUri: string,
+  userId: string
 ): Promise<StravaToken> {
   const clientId     = process.env.STRAVA_CLIENT_ID ?? '';
   const clientSecret = process.env.STRAVA_CLIENT_SECRET ?? '';
 
+  // Strava exige application/x-www-form-urlencoded (não JSON).
   const res = await fetch(STRAVA_TOKEN_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
       client_id: clientId,
       client_secret: clientSecret,
       code,
       grant_type: 'authorization_code',
+      // redirect_uri não é exigido pela troca de token do Strava, mas é aceito.
       redirect_uri: redirectUri,
-    }),
+    }).toString(),
   });
 
   if (!res.ok) {
@@ -148,12 +162,12 @@ export async function exchangeStravaCode(
     athleteName: `${data.athlete.firstname} ${data.athlete.lastname}`,
   };
 
-  saveStravaToken(token);
+  saveStravaToken(userId, token);
   return token;
 }
 
-export async function refreshStravaToken(): Promise<StravaToken | null> {
-  const current = loadStravaToken();
+export async function refreshStravaToken(userId: string): Promise<StravaToken | null> {
+  const current = loadStravaToken(userId);
   if (!current) return null;
 
   // Token still valid
@@ -164,13 +178,13 @@ export async function refreshStravaToken(): Promise<StravaToken | null> {
 
   const res = await fetch(STRAVA_TOKEN_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
       client_id: clientId,
       client_secret: clientSecret,
       refresh_token: current.refreshToken,
       grant_type: 'refresh_token',
-    }),
+    }).toString(),
   });
 
   if (!res.ok) return null;
@@ -188,7 +202,7 @@ export async function refreshStravaToken(): Promise<StravaToken | null> {
     expiresAt: data.expires_at,
   };
 
-  saveStravaToken(refreshed);
+  saveStravaToken(userId, refreshed);
   return refreshed;
 }
 
@@ -228,9 +242,10 @@ export interface StravaSyncResult {
 }
 
 export async function syncStravaActivities(
+  userId: string,
   daysBack = 30
 ): Promise<StravaSyncResult> {
-  const token = await refreshStravaToken();
+  const token = await refreshStravaToken(userId);
   if (!token) throw new Error('Strava not connected');
 
   const after = Math.floor(Date.now() / 1000 - daysBack * 86400);
@@ -246,12 +261,12 @@ export async function syncStravaActivities(
     ...token,
     syncedAt: new Date().toISOString(),
   };
-  saveStravaToken(updated);
+  saveStravaToken(userId, updated);
 
-  // Save activities to local DB snapshot
-  ensureDataDir();
+  // Save activities to per-user snapshot
+  ensureDir();
   fs.writeFileSync(
-    path.join(DATA_DIR, 'strava-activities.json'),
+    activitiesFile(userId),
     JSON.stringify({ updatedAt: updated.syncedAt, sessions }, null, 2),
     'utf-8'
   );
@@ -264,8 +279,8 @@ export async function syncStravaActivities(
   };
 }
 
-export function loadCachedStravaActivities(): WorkoutSession[] {
-  const filePath = path.join(DATA_DIR, 'strava-activities.json');
+export function loadCachedStravaActivities(userId: string): WorkoutSession[] {
+  const filePath = activitiesFile(userId);
   if (!fs.existsSync(filePath)) return [];
   try {
     const { sessions } = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as { sessions: WorkoutSession[] };
@@ -273,6 +288,23 @@ export function loadCachedStravaActivities(): WorkoutSession[] {
   } catch { return []; }
 }
 
-export function disconnectStrava(): void {
-  if (fs.existsSync(TOKEN_FILE)) fs.rmSync(TOKEN_FILE);
+/**
+ * Desconecta o Strava do usuário: revoga o token no Strava (best-effort) e
+ * remove os arquivos locais (token + cache de atividades).
+ */
+export async function disconnectStrava(userId: string): Promise<void> {
+  const token = loadStravaToken(userId);
+  if (token) {
+    try {
+      await fetch('https://www.strava.com/oauth/deauthorize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ access_token: token.accessToken }).toString(),
+      });
+    } catch { /* best-effort: segue removendo localmente */ }
+  }
+  const tf = tokenFile(userId);
+  const af = activitiesFile(userId);
+  if (fs.existsSync(tf)) fs.rmSync(tf);
+  if (fs.existsSync(af)) fs.rmSync(af);
 }

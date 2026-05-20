@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     const daysBack = body.daysBack ?? 7;
     const userId = auth.user.id;
 
-    const syncResult = await syncZeppHealth(daysBack);
+    const syncResult = await syncZeppHealth(userId, daysBack);
     const bridge = bridgeZeppToSWECI(userId, syncResult);
 
     return NextResponse.json({

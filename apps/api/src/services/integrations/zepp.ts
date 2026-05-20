@@ -111,29 +111,40 @@ const SPORT_TYPE_MAP: Record<number, { name: string; emoji: string }> = {
   20: { name: 'skiing',           emoji: '⛷️' },
 };
 
-const DATA_DIR   = path.join(process.cwd(), 'src', 'repositories', '.data');
-const TOKEN_FILE = path.join(DATA_DIR, 'zepp-token.json');
+const DATA_DIR  = path.join(process.cwd(), 'src', 'repositories', '.data');
+const ZEPP_DIR  = path.join(DATA_DIR, 'zepp');
 
-// ─── Token Storage ────────────────────────────────────────────────────────────
-
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+function safeId(userId: string): string {
+  return userId.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+function tokenFile(userId: string): string {
+  return path.join(ZEPP_DIR, `${safeId(userId)}-token.json`);
+}
+function healthFile(userId: string): string {
+  return path.join(ZEPP_DIR, `${safeId(userId)}-health.json`);
 }
 
-export function loadZeppToken(): ZeppToken | null {
-  if (!fs.existsSync(TOKEN_FILE)) return null;
+// ─── Token Storage (por usuário) ───────────────────────────────────────────────
+
+function ensureDir() {
+  if (!fs.existsSync(ZEPP_DIR)) fs.mkdirSync(ZEPP_DIR, { recursive: true });
+}
+
+export function loadZeppToken(userId: string): ZeppToken | null {
+  const file = tokenFile(userId);
+  if (!fs.existsSync(file)) return null;
   try {
-    return JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf-8')) as ZeppToken;
+    return JSON.parse(fs.readFileSync(file, 'utf-8')) as ZeppToken;
   } catch { return null; }
 }
 
-function saveZeppToken(token: ZeppToken) {
-  ensureDataDir();
-  fs.writeFileSync(TOKEN_FILE, JSON.stringify(token, null, 2), 'utf-8');
+function saveZeppToken(userId: string, token: ZeppToken) {
+  ensureDir();
+  fs.writeFileSync(tokenFile(userId), JSON.stringify(token, null, 2), 'utf-8');
 }
 
-export function isZeppConnected(): boolean {
-  return loadZeppToken() !== null;
+export function isZeppConnected(userId: string): boolean {
+  return loadZeppToken(userId) !== null;
 }
 
 // ─── OAuth2 Flow ──────────────────────────────────────────────────────────────
@@ -152,7 +163,8 @@ export function getZeppAuthUrl(redirectUri: string, state?: string): string {
 
 export async function exchangeZeppCode(
   code: string,
-  redirectUri: string
+  redirectUri: string,
+  userId: string
 ): Promise<ZeppToken> {
   const clientId     = process.env.ZEPP_CLIENT_ID ?? '';
   const clientSecret = process.env.ZEPP_CLIENT_SECRET ?? '';
@@ -188,12 +200,12 @@ export async function exchangeZeppCode(
     openId: data.open_id,
   };
 
-  saveZeppToken(token);
+  saveZeppToken(userId, token);
   return token;
 }
 
-export async function refreshZeppToken(): Promise<ZeppToken | null> {
-  const current = loadZeppToken();
+export async function refreshZeppToken(userId: string): Promise<ZeppToken | null> {
+  const current = loadZeppToken(userId);
   if (!current) return null;
 
   // Still valid (with 60s buffer)
@@ -228,7 +240,7 @@ export async function refreshZeppToken(): Promise<ZeppToken | null> {
     expiresAt: Date.now() + data.expires_in * 1000,
   };
 
-  saveZeppToken(refreshed);
+  saveZeppToken(userId, refreshed);
   return refreshed;
 }
 
@@ -290,8 +302,8 @@ export interface ZeppSyncResult {
   }>;
 }
 
-export async function syncZeppHealth(daysBack = 7): Promise<ZeppSyncResult> {
-  const token = await refreshZeppToken();
+export async function syncZeppHealth(userId: string, daysBack = 7): Promise<ZeppSyncResult> {
+  const token = await refreshZeppToken(userId);
   if (!token) throw new Error('Zepp not connected');
 
   const endDate   = new Date();
@@ -364,12 +376,12 @@ export async function syncZeppHealth(daysBack = 7): Promise<ZeppSyncResult> {
     syncedAt: new Date().toISOString(),
   };
 
-  // Persist
-  ensureDataDir();
+  // Persist (por usuário)
+  ensureDir();
   const updatedToken: ZeppToken = { ...token, syncedAt: snapshot.syncedAt };
-  saveZeppToken(updatedToken);
+  saveZeppToken(userId, updatedToken);
   fs.writeFileSync(
-    path.join(DATA_DIR, 'zepp-health.json'),
+    healthFile(userId),
     JSON.stringify({ snapshot, normalized, workoutSessions }, null, 2),
     'utf-8'
   );
@@ -377,14 +389,17 @@ export async function syncZeppHealth(daysBack = 7): Promise<ZeppSyncResult> {
   return { snapshot, normalized, workoutSessions };
 }
 
-export function loadCachedZeppHealth(): ZeppSyncResult | null {
-  const filePath = path.join(DATA_DIR, 'zepp-health.json');
+export function loadCachedZeppHealth(userId: string): ZeppSyncResult | null {
+  const filePath = healthFile(userId);
   if (!fs.existsSync(filePath)) return null;
   try {
     return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as ZeppSyncResult;
   } catch { return null; }
 }
 
-export function disconnectZepp(): void {
-  if (fs.existsSync(TOKEN_FILE)) fs.rmSync(TOKEN_FILE);
+export async function disconnectZepp(userId: string): Promise<void> {
+  const tf = tokenFile(userId);
+  const hf = healthFile(userId);
+  if (fs.existsSync(tf)) fs.rmSync(tf);
+  if (fs.existsSync(hf)) fs.rmSync(hf);
 }

@@ -5,21 +5,25 @@
 import { NextResponse } from 'next/server';
 import { loadStravaToken, isStravaConnected } from '@/services/integrations/strava';
 import { loadZeppToken, isZeppConnected } from '@/services/integrations/zepp';
+import { requireAuth } from '@/lib/http';
 
 export async function GET() {
-  const stravaToken = loadStravaToken();
-  const zeppToken   = loadZeppToken();
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
+  const userId = auth.user.id;
+  const stravaToken = loadStravaToken(userId);
+  const zeppToken   = loadZeppToken(userId);
 
   const status = {
     strava: {
-      connected: isStravaConnected(),
+      connected: isStravaConnected(userId),
       athleteName: stravaToken?.athleteName ?? null,
       syncedAt: stravaToken?.syncedAt ?? null,
       expiresAt: stravaToken?.expiresAt ?? null,
       isExpired: stravaToken ? Date.now() / 1000 > stravaToken.expiresAt : false,
     },
     zepp: {
-      connected: isZeppConnected(),
+      connected: isZeppConnected(userId),
       openId: zeppToken?.openId ?? null,
       syncedAt: zeppToken?.syncedAt ?? null,
       expiresAt: zeppToken?.expiresAt ?? null,

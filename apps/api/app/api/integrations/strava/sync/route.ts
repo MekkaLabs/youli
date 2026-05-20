@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     const daysBack = body.daysBack ?? 30;
     const userId = auth.user.id;
 
-    const syncResult = await syncStravaActivities(daysBack);
+    const syncResult = await syncStravaActivities(userId, daysBack);
     const bridge = bridgeStravaToSWECI(userId, syncResult);
 
     return NextResponse.json({
