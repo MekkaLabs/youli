@@ -79,11 +79,28 @@ export class MockOpenFinanceAdapter implements OpenFinanceAdapter {
   }
 }
 
+/**
+ * NOTA: as integrações reais com Pluggy/Belvo ainda não foram implementadas.
+ * Por isso esses adapters retornam status `pending` e dados simulados
+ * (delegando para o MockAdapter). Quando a integração real existir:
+ *   1. Trocar `getAccounts/getTransactions/getSummary` para chamar o SDK.
+ *   2. Mudar o `provider` retornado para `'pluggy'`/`'belvo'` em vez de 'mock'.
+ *   3. Garantir que `status` reflita o item real (LOGIN_IN_PROGRESS, UPDATED, etc.).
+ *
+ * O provider mantém valor 'mock' nos dados retornados como SINAL EXPLÍCITO
+ * de que o conteúdo é simulado — não mascarar isso.
+ */
 export class PluggyOpenFinanceAdapter implements OpenFinanceAdapter {
-  constructor(private readonly clientId: string, private readonly clientSecret: string) {}
+  constructor(private readonly clientId: string, private readonly clientSecret: string) {
+    if (!clientId || !clientSecret) {
+      throw new Error('PluggyOpenFinanceAdapter: clientId/clientSecret obrigatórios');
+    }
+    // eslint-disable-next-line no-console
+    console.warn('[integrations] PluggyOpenFinanceAdapter em modo MOCK — implementação real pendente');
+  }
 
   async connectInstitution(institutionCode: string): Promise<OpenFinanceConnection> {
-    // TODO: Implementar fluxo real Pluggy Connect Token + Item OAuth.
+    // TODO(integrations): Implementar fluxo real Pluggy Connect Token + Item OAuth.
     return {
       id: `pluggy-${institutionCode}-${Date.now()}`,
       provider: 'mock',
@@ -106,10 +123,16 @@ export class PluggyOpenFinanceAdapter implements OpenFinanceAdapter {
 }
 
 export class BelvoOpenFinanceAdapter implements OpenFinanceAdapter {
-  constructor(private readonly secretId: string, private readonly secretPassword: string) {}
+  constructor(private readonly secretId: string, private readonly secretPassword: string) {
+    if (!secretId || !secretPassword) {
+      throw new Error('BelvoOpenFinanceAdapter: secretId/secretPassword obrigatórios');
+    }
+    // eslint-disable-next-line no-console
+    console.warn('[integrations] BelvoOpenFinanceAdapter em modo MOCK — implementação real pendente');
+  }
 
   async connectInstitution(institutionCode: string): Promise<OpenFinanceConnection> {
-    // TODO: Implementar fluxo real Belvo Widget/Link + consentimento.
+    // TODO(integrations): Implementar fluxo real Belvo Widget/Link + consentimento.
     return {
       id: `belvo-${institutionCode}-${Date.now()}`,
       provider: 'mock',
@@ -131,6 +154,15 @@ export class BelvoOpenFinanceAdapter implements OpenFinanceAdapter {
   }
 }
 
+/**
+ * Resolve o adapter a usar.
+ *
+ * Estratégia: se `provider` é pluggy/belvo mas as credenciais não estão
+ * no env, **emite warning** e cai pro Mock automaticamente — em vez de
+ * falhar silenciosamente como antes (status 'mock' parecendo 'pending'
+ * sem aviso). Isso permite que `OPEN_FINANCE_PROVIDER` seja `pluggy`
+ * em prod sem quebrar dev local.
+ */
 export function createOpenFinanceAdapter(provider: OpenFinanceProvider): OpenFinanceAdapter {
   if (provider === 'pluggy') {
     const clientId = process.env.PLUGGY_CLIENT_ID;
@@ -138,6 +170,8 @@ export function createOpenFinanceAdapter(provider: OpenFinanceProvider): OpenFin
     if (clientId && clientSecret) {
       return new PluggyOpenFinanceAdapter(clientId, clientSecret);
     }
+    // eslint-disable-next-line no-console
+    console.warn('[integrations] PLUGGY_CLIENT_ID/SECRET ausentes — usando MockOpenFinanceAdapter');
   }
 
   if (provider === 'belvo') {
@@ -146,6 +180,8 @@ export function createOpenFinanceAdapter(provider: OpenFinanceProvider): OpenFin
     if (secretId && secretPassword) {
       return new BelvoOpenFinanceAdapter(secretId, secretPassword);
     }
+    // eslint-disable-next-line no-console
+    console.warn('[integrations] BELVO_SECRET_ID/PASSWORD ausentes — usando MockOpenFinanceAdapter');
   }
 
   return new MockOpenFinanceAdapter();

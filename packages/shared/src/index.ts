@@ -97,7 +97,33 @@ export interface Habit { id: string; goalId?: string; title: string; frequency: 
 export interface CalendarEvent { id: string; source: 'google' | 'apple' | 'native' | 'mock'; title: string; startsAt: string; endsAt: string; }
 export interface FitnessActivity { id: string; source: 'strava' | 'mock'; type: string; durationMin: number; intensity: EnergyLevel; startedAt: string; }
 export interface DailyInsight { id: string; createdAt: string; summary: string; actions: string[]; energy: EnergyLevel; }
-export interface MemoryRecord { id: string; userId: string; type: 'fact' | 'pattern' | 'event' | 'preference'; text: string; embedding?: number[]; score?: number; createdAt: string; }
+/**
+ * Origem do registro de memória.
+ * - 'app':      criado dentro do Youli (UI, voice, etc.)
+ * - 'agent':    gerado por um dos 10 agentes (SWE-CI loop, insights)
+ * - 'voice':    captura por voz transcrita (Whisper, futuro)
+ * - 'obsidian': sincronizado do vault Obsidian do usuário (segundo cérebro)
+ * - 'import':   ingestão genérica (CSV, arquivo, etc.)
+ */
+export type MemorySource = 'app' | 'agent' | 'voice' | 'obsidian' | 'import';
+
+export interface MemoryRecord {
+  id: string;
+  userId: string;
+  type: 'fact' | 'pattern' | 'event' | 'preference';
+  text: string;
+  embedding?: number[];
+  score?: number;
+  createdAt: string;
+  /** Origem do registro. Default em consumidores: 'app'. */
+  source?: MemorySource;
+  /** Identificador externo (ex: nome do arquivo .md do Obsidian). Útil para upsert idempotente. */
+  externalId?: string;
+  /** Tags livres para filtro (ex: ['daily', '2026-05']). */
+  tags?: string[];
+  /** Área de vida associada (se aplicável). */
+  area?: string;
+}
 export interface AgentWorkflow { id: string; squad: string; name: string; trigger: string; }
 export interface SquadExecution { id: string; workflowId: string; status: 'queued' | 'running' | 'done' | 'error'; startedAt: string; finishedAt?: string; }
 export interface IntegrationAccount { id: string; provider: 'google' | 'apple' | 'strava'; status: 'connected' | 'mock' | 'disconnected'; externalUserId?: string; }

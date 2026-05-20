@@ -22,13 +22,37 @@ import {
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const EMBED_MODEL = 'claude-haiku-4-5-20251001';
 
+export type MemoryOrigin = 'app' | 'agent' | 'voice' | 'obsidian' | 'import';
+
 export interface MemoryEntry {
   id: string;
   content: string;
   area?: string;
   timestamp: Date;
   score?: number;
+  /** Camada onde foi encontrado. */
   source: 'zep' | 'pgvector' | 'cache';
+  /** Origem do dado (de onde veio antes de ser indexado). */
+  origin?: MemoryOrigin;
+  tags?: string[];
+  externalId?: string;
+}
+
+export interface AddMemoryOptions {
+  area?: string;
+  /** Origem semântica (ex: 'obsidian' para nota do vault). */
+  origin?: MemoryOrigin;
+  /** ID externo (ex: caminho do .md). Usado para upsert idempotente. */
+  externalId?: string;
+  tags?: string[];
+  /** Override do userId padrão. */
+  userId?: string;
+}
+
+export interface SearchMemoryOptions {
+  limit?: number;
+  /** Filtrar resultados por origem. */
+  origin?: MemoryOrigin;
 }
 
 export interface MemoryEngineOptions {
@@ -48,6 +72,9 @@ interface CacheEntry {
   area: string;
   embedding?: number[];
   timestamp: Date;
+  origin?: MemoryOrigin;
+  externalId?: string;
+  tags?: string[];
 }
 
 const memoryCache = new Map<string, CacheEntry[]>();
@@ -90,51 +117,109 @@ export class MemoryEngine {
 
   // ── ADD MEMORY ─────────────────────────────────────────
 
-  async add(content: string, area = 'general'): Promise<void> {
+  /**
+   * Adiciona uma memória. Aceita string (modo simples) ou objeto AddMemoryOptions
+   * com metadata adicional (origin, externalId, tags). Quando `externalId` é
+   * passado, faz upsert em pgvector e cache em vez de inserção duplicada.
+   *
+   * BACKWARD COMPAT: assinatura antiga `add(content, area)` continua funcionando.
+   */
+  async add(content: string, areaOrOpts: string | AddMemoryOptions = 'general'): Promise<void> {
     const timestamp = new Date();
+    const opts: AddMemoryOptions =
+      typeof areaOrOpts === 'string' ? { area: areaOrOpts } : areaOrOpts;
+    const area = opts.area ?? 'general';
+    const origin = opts.origin ?? 'app';
+    const externalId = opts.externalId;
+    const tags = opts.tags;
+    const userId = opts.userId ?? this.userId;
 
     // 1. Zep (grafo temporal)
-    await addZepMemory(this.userId, [
+    await addZepMemory(userId, [
       {
         roleType: 'user',
         role: `youli-${area}`,
         content,
-        metadata: { area, timestamp: timestamp.toISOString() },
+        metadata: {
+          area,
+          origin,
+          externalId,
+          tags,
+          timestamp: timestamp.toISOString(),
+        },
       },
     ]);
 
-    // 2. pgvector (Supabase)
+    // 2. pgvector (Supabase) com upsert por externalId quando informado
     if (this.supabase && this.opts.profileId) {
       try {
         const embedding = await this.embed(content);
-        await this.supabase.from('memories').insert({
+        const payload = {
           profile_id: this.opts.profileId,
           content,
           area,
           embedding,
+          origin,
+          external_id: externalId ?? null,
+          tags: tags ?? null,
           created_at: timestamp.toISOString(),
-        });
+        };
+        if (externalId) {
+          // Tenta UPDATE primeiro. Se não bater nada, INSERT.
+          const { data: updated } = await this.supabase
+            .from('memories')
+            .update(payload)
+            .eq('profile_id', this.opts.profileId)
+            .eq('external_id', externalId)
+            .select('id');
+          if (!updated || updated.length === 0) {
+            await this.supabase.from('memories').insert(payload);
+          }
+        } else {
+          await this.supabase.from('memories').insert(payload);
+        }
       } catch (err) {
-        console.warn('[Memory] Supabase insert error:', err);
+        // eslint-disable-next-line no-console
+        console.warn('[Memory] Supabase upsert error:', err);
       }
     }
 
-    // 3. In-memory cache
-    const key = this.userId;
+    // 3. In-memory cache (também idempotente por externalId quando informado)
+    const key = userId;
     const entries = memoryCache.get(key) || [];
-    entries.push({ content, area, timestamp });
+    if (externalId) {
+      const idx = entries.findIndex((e) => e.externalId === externalId);
+      const cacheEntry: CacheEntry = { content, area, timestamp, origin, externalId, tags };
+      if (idx !== -1) entries[idx] = cacheEntry;
+      else entries.push(cacheEntry);
+    } else {
+      entries.push({ content, area, timestamp, origin, tags });
+    }
     if (entries.length > 200) entries.shift();
     memoryCache.set(key, entries);
   }
 
   // ── SEARCH ─────────────────────────────────────────────
 
-  async search(query: string, limit = 8): Promise<MemoryEntry[]> {
+  /**
+   * Busca semântica nas 3 camadas. Aceita `limit` (number, backward compat)
+   * ou `SearchMemoryOptions` com filtro por `origin` (ex: só notas do Obsidian).
+   */
+  async search(
+    query: string,
+    limitOrOpts: number | SearchMemoryOptions = 8,
+  ): Promise<MemoryEntry[]> {
+    const opts: SearchMemoryOptions =
+      typeof limitOrOpts === 'number' ? { limit: limitOrOpts } : limitOrOpts;
+    const limit = opts.limit ?? 8;
+    const filterOrigin = opts.origin;
+
     const results: MemoryEntry[] = [];
 
     // 1. Zep (mais rico — grafo + relações)
     const zepResults = await searchZepMemory(this.userId, query, limit);
     for (const r of zepResults) {
+      const meta = (r.fact as { metadata?: { origin?: MemoryOrigin; externalId?: string; tags?: string[] } }).metadata;
       results.push({
         id: r.fact.uuid || `zep-${Date.now()}`,
         content: r.fact.content,
@@ -142,6 +227,9 @@ export class MemoryEngine {
         timestamp: new Date(r.fact.created_at || Date.now()),
         score: r.score,
         source: 'zep',
+        origin: meta?.origin,
+        externalId: meta?.externalId,
+        tags: meta?.tags,
       });
     }
 
@@ -151,7 +239,7 @@ export class MemoryEngine {
         const embedding = await this.embed(query);
         const { data } = await this.supabase.rpc('match_memories', {
           query_embedding: embedding,
-          match_count: limit - results.length,
+          match_count: Math.max(1, limit - results.length),
           profile_id: this.opts.profileId,
         });
         for (const row of data || []) {
@@ -162,6 +250,9 @@ export class MemoryEngine {
             timestamp: new Date(row.created_at),
             score: row.similarity,
             source: 'pgvector',
+            origin: (row.origin as MemoryOrigin | undefined) ?? undefined,
+            externalId: row.external_id ?? undefined,
+            tags: row.tags ?? undefined,
           });
         }
       } catch {}
@@ -181,11 +272,15 @@ export class MemoryEngine {
           timestamp: e.timestamp,
           score: 0.5,
           source: 'cache' as const,
+          origin: e.origin,
+          externalId: e.externalId,
+          tags: e.tags,
         }));
       results.push(...matched);
     }
 
-    return results.sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, limit);
+    const filtered = filterOrigin ? results.filter((r) => r.origin === filterOrigin) : results;
+    return filtered.sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, limit);
   }
 
   // ── CONTEXT ────────────────────────────────────────────
