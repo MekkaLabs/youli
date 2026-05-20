@@ -4,6 +4,7 @@
  * Roadmap: WhatsApp · Google Calendar · Spotify · Notion
  */
 import { useI18n } from '../src/hooks/useI18n';
+import { logWarn } from '../src/services/logger';
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
@@ -177,8 +178,9 @@ export default function IntegrationsScreen() {
     try {
       const res = await fetch(`${API_BASE}/api/integrations/status`);
       if (res.ok) setStatus(await res.json());
-    } catch {}
-    finally { setLoading(false); setRefreshing(false); }
+    } catch (e) {
+      logWarn('integrations:fetchStatus', e);
+    } finally { setLoading(false); setRefreshing(false); }
   }, []);
 
   React.useEffect(() => { fetchStatus(); }, [fetchStatus]);

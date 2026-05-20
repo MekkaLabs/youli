@@ -5,6 +5,7 @@
  */
 
 import React, { useState } from 'react';
+import { logWarn } from '../../services/logger';
 import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { useLifePatterns, LifePattern, PatternSeverity } from '../../hooks/useLifePatterns';
@@ -105,7 +106,9 @@ export function CrossAreaInsights({ compact = false }: { compact?: boolean }) {
   const handleAction = (screen: string) => {
     try {
       router.push(screen as any);
-    } catch {}
+    } catch (e) {
+      logWarn('CrossAreaInsights:navigate', e);
+    }
   };
 
   if (patterns.length === 0) return null;

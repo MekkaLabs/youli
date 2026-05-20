@@ -3,6 +3,7 @@
  * Agente: Hipócrates (saúde e vitalidade)
  */
 import React, { useState, useEffect } from 'react';
+import { logWarn } from '../../src/services/logger';
 import { useI18n } from '../../src/hooks/useI18n';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -97,8 +98,9 @@ export default function FitnessScreen() {
           urgency: ag.urgency,
         });
       }
-    } catch {}
-    finally { setAnalyzing(false); }
+    } catch (e) {
+      logWarn('fitness:analyze', e);
+    } finally { setAnalyzing(false); }
   }
 
   return (

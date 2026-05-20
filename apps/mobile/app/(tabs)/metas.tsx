@@ -1,4 +1,5 @@
 import { useI18n } from '../../src/hooks/useI18n';
+import { logWarn } from '../../src/services/logger';
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, TextInput, SafeAreaView } from 'react-native';
 import { EmptyState } from '../../src/molecules/EmptyState';
@@ -88,8 +89,9 @@ export default function MetasScreen() {
           urgency: ag.urgency,
         });
       }
-    } catch {}
-    finally { setAnalyzing(false); }
+    } catch (e) {
+      logWarn('metas:analyze', e);
+    } finally { setAnalyzing(false); }
   }
 
   return (

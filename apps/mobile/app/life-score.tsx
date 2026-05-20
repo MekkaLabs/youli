@@ -3,6 +3,7 @@
  * Visualização rica de todos os scores: Life Health, ANC, Maintainability, top gaps
  */
 import { useI18n } from '../src/hooks/useI18n';
+import { logWarn } from '../src/services/logger';
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
@@ -153,8 +154,9 @@ export default function LifeScoreScreen() {
     try {
       const res = await fetch(`${API_BASE}/api/copilot/life-health?userId=default`);
       if (res.ok) setData(await res.json());
-    } catch {}
-    finally {
+    } catch (e) {
+      logWarn('life-score:load', e);
+    } finally {
       setLoading(false);
       setRefreshing(false);
     }

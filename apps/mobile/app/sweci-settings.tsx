@@ -3,6 +3,7 @@
  * Permite ativar/desativar cada feature do SWE-CI individualmente.
  */
 import { useI18n } from '../src/hooks/useI18n';
+import { logWarn } from '../src/services/logger';
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Switch,
@@ -156,8 +157,9 @@ export default function SWECISettingsScreen() {
     try {
       const res = await fetch(`${API_BASE}/api/copilot/runtime-config`);
       if (res.ok) setConfig(await res.json());
-    } catch {}
-    finally { setLoading(false); setRefreshing(false); }
+    } catch (e) {
+      logWarn('sweci-settings:fetchConfig', e);
+    } finally { setLoading(false); setRefreshing(false); }
   }, []);
 
   React.useEffect(() => { fetchConfig(); }, [fetchConfig]);

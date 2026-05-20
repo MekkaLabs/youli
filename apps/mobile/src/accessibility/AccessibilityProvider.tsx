@@ -16,6 +16,7 @@ import React, {
   useState,
 } from 'react';
 import { AccessibilityInfo, Platform } from 'react-native';
+import { logWarn } from '../services/logger';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -167,7 +168,9 @@ async function loadPersisted(): Promise<Partial<AccessibilitySettings>> {
     );
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw) as Partial<AccessibilitySettings>;
-  } catch {}
+  } catch (e) {
+    logWarn('AccessibilityProvider:loadPersisted', e);
+  }
   return {};
 }
 
@@ -177,5 +180,7 @@ async function persistSettings(s: AccessibilitySettings): Promise<void> {
       '@react-native-async-storage/async-storage'
     );
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-  } catch {}
+  } catch (e) {
+    logWarn('AccessibilityProvider:persistSettings', e);
+  }
 }

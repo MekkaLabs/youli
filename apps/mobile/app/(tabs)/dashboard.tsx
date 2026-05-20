@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
+import { logWarn } from '../../src/services/logger';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -126,7 +127,9 @@ export default function DashboardScreen() {
       ]);
       if (dash.status === 'fulfilled') setDashData(dash.value);
       if (txRes.status === 'fulfilled') setTransactions(txRes.value.transactions || []);
-    } catch {}
+    } catch (e) {
+      logWarn('dashboard:load', e);
+    }
   }, []);
 
   React.useEffect(() => { load(); }, []);

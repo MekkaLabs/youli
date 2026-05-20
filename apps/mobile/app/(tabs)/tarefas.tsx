@@ -1,4 +1,5 @@
 import { useI18n } from '../../src/hooks/useI18n';
+import { logWarn } from '../../src/services/logger';
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -59,8 +60,9 @@ export default function TarefasScreen() {
           urgency: ag.urgency,
         });
       }
-    } catch {}
-    finally { setAnalyzing(false); }
+    } catch (e) {
+      logWarn('tarefas:analyze', e);
+    } finally { setAnalyzing(false); }
   }
 
   const filterLabels: Record<TaskFilter, string> = {

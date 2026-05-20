@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { logWarn } from '../../src/services/logger';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, TextInput, SafeAreaView } from 'react-native';
 import { useI18n } from '../../src/hooks/useI18n';
 import { EmptyState } from '../../src/molecules/EmptyState';
@@ -94,8 +95,9 @@ export default function HabitosScreen() {
           urgency: ag.urgency,
         });
       }
-    } catch {}
-    finally { setAnalyzing(false); }
+    } catch (e) {
+      logWarn('habitos:analyze', e);
+    } finally { setAnalyzing(false); }
   }
 
   const habitGap = healthData?.topGaps.find((g) => g.area === 'habitos');
