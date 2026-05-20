@@ -155,3 +155,32 @@ scripts/start-dev.sh                            — sobe local + detecta IP LAN
 5. **(Maior)** Migrar persistência para multi-usuário real (`auth.user.id` nos repositories).
 
 Bom trabalho para o próximo! Tudo commitado, app rodando, fundação de segurança sólida.
+
+---
+
+## 8. Sessão 2 — 10 melhorias de qualidade (2026-05-20, continuação)
+
+Continuação automática a partir do débito técnico priorizado acima. **Typecheck
+100% limpo em `apps/api` e `apps/mobile` (0 erros)** — os 3 erros de `boxShadow`
+da seção 4 já não reproduzem neste estado da worktree.
+
+| # | Melhoria | Commit |
+|---|----------|--------|
+| 1-3 | Tipar `any` na API: `agent-signal-bus` (LifeContext + payloads por SignalType), `life-graph` (LifeSnapshot + AreaRelationshipRow), `habits` (HabitRow) | `5eac7f7` |
+| 4-6 | Tipar `any` nos organisms mobile via tipos dos hooks (DashboardHero, DailyDigest, ShareCard, GlobalSearch, WeeklyReview, TodayFocusCard) | `d838001` |
+| 7 | Substituir 11 `catch {}` vazios por `logWarn` (telas, integrations, life-score, sweci-settings, CrossAreaInsights, AccessibilityProvider) | `112eb01` |
+| 8 | Cleanup de Obsidian deletada: rota `sync-obsidian` aceita `prune.knownExternalIds`; script ganha `--prune` (opt-in/destrutivo) | `0e8e077` |
+
+### Bugs latentes corrigidos pela tipagem (estavam mascarados por `as any`)
+
+- **`useHealth().data` não existe** → era sempre `undefined`; trocado por `health.summary.today` (passos reais no DashboardHero).
+- **`habit.completedToday` não existe** em `HabitData` → trocado por `habits.isCompletedToday(h)` (DashboardHero, ShareCard, WeeklyReview, DailyDigest).
+- **`goal.progress` não existe** em `GoalData` → trocado por `goals.progressPercent(currentValue, targetValue)` (DashboardHero, ShareCard, GlobalSearch).
+- **`habits.ts` checkin** usava `supabase.rpc('increment') as any` como valor de coluna (sempre falhava, caía no fallback) → simplificado para read-then-increment.
+
+### Débito ainda em aberto (não tocado nesta sessão)
+
+- `any` legítimos de native-modules em `useHealth.ts` (HealthKit) — mantidos de propósito.
+- Camada de dados ainda single-profile (`YOULI_PROFILE_ID` global em vez de `auth.user.id`) — item maior, fora do escopo desta sessão.
+- Prune do Obsidian remove o `MemoryRecord` no connector, mas **não** remove do índice semântico (Zep/pgvector) — o engine não expõe delete aqui. Avaliar quando houver `engine.remove`.
+- Funcionalidades mock (Pluggy/Belvo, Whisper) — inalteradas.
