@@ -42,10 +42,10 @@ export function WeeklyReview({ visible, onClose }: WeeklyReviewProps) {
   const [saving, setSaving] = useState(false);
 
   // Stats da semana para contexto
-  const habitsArr = (habits as any).habits ?? [];
-  const goalsArr = (goals as any).goals ?? [];
-  const completedHabits = habitsArr.filter((h: any) => h.completedToday).length;
-  const activeGoals = goalsArr.filter((g: any) => g.status === 'active').length;
+  const habitsArr = habits.habits ?? [];
+  const goalsArr = goals.goals ?? [];
+  const completedHabits = habitsArr.filter((h) => habits.isCompletedToday(h)).length;
+  const activeGoals = goalsArr.filter((g) => g.status === 'active').length;
 
   async function handleFinish() {
     setSaving(true);
@@ -94,7 +94,7 @@ export function WeeklyReview({ visible, onClose }: WeeklyReviewProps) {
                 <Text style={styles.statLab}>metas ativas</Text>
               </View>
               <View style={styles.statPill}>
-                <Text style={styles.statVal}>{Math.round((habitsArr.reduce((s: number, h: any) => s + (h.streak ?? 0), 0) / Math.max(habitsArr.length, 1)))}</Text>
+                <Text style={styles.statVal}>{Math.round((habitsArr.reduce((s, h) => s + (h.streak ?? 0), 0) / Math.max(habitsArr.length, 1)))}</Text>
                 <Text style={styles.statLab}>streak médio</Text>
               </View>
             </View>

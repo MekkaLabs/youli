@@ -67,10 +67,10 @@ export function TodayFocusCard() {
     : item.urgency === 'high' ? '🟡 Alta prioridade' : '🟣 Foco do dia';
 
   const navigateTo = () => {
-    if (item.area === 'habitos') router.push('/(tabs)/habitos' as any);
-    else if (item.area === 'metas') router.push('/(tabs)/metas' as any);
-    else if (item.area === 'fitness') router.push('/(tabs)/fitness' as any);
-    else router.push('/(tabs)/tarefas' as any);
+    if (item.area === 'habitos') router.push('/(tabs)/habitos');
+    else if (item.area === 'metas') router.push('/(tabs)/metas');
+    else if (item.area === 'fitness') router.push('/(tabs)/fitness');
+    else router.push('/(tabs)/tarefas');
   };
 
   return (

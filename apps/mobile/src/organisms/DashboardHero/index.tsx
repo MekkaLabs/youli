@@ -6,7 +6,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
 import Svg, { Circle, Text as SvgText } from 'react-native-svg';
-import { useHabits } from '../../hooks/useHabits';
+import { useHabits, type HabitData } from '../../hooks/useHabits';
 import { useGoals } from '../../hooks/useGoals';
 import { useHealth } from '../../hooks/useHealth';
 import { useLifePatterns } from '../../hooks/useLifePatterns';
@@ -49,8 +49,13 @@ function energyEmoji(level: string | number) {
   return level >= 70 ? '⚡' : level >= 40 ? '🔋' : '😴';
 }
 
+interface DashboardData {
+  steps?: number;
+  dashboard?: { dayFocus?: string; energy?: string | number };
+}
+
 interface DashboardHeroProps {
-  data?: any;
+  data?: DashboardData;
   onOpenCopilot?: () => void;
 }
 
@@ -61,35 +66,37 @@ export function DashboardHero({ data, onOpenCopilot }: DashboardHeroProps) {
   const patterns = useLifePatterns();
   const { xpData } = useXP();
 
-  const habitsArr = (habits as any).habits ?? [];
-  const goalsArr = (goals as any).goals ?? [];
-  const healthData = (health as any).data;
+  const habitsArr = habits.habits ?? [];
+  const goalsArr = goals.goals ?? [];
+  const healthToday = health.summary?.today;
 
   // Calcula scores em tempo real
   const habitScore = useMemo(() => {
     if (!habitsArr.length) return 0;
-    const done = habitsArr.filter((h: any) => h.completedToday || (habits as any).isCompletedToday?.(h)).length;
+    const done = habitsArr.filter((h) => habits.isCompletedToday(h)).length;
     return Math.round((done / habitsArr.length) * 100);
   }, [habitsArr]);
 
   const goalScore = useMemo(() => {
-    const active = goalsArr.filter((g: any) => g.status === 'active');
+    const active = goalsArr.filter((g) => g.status === 'active');
     if (!active.length) return 0;
-    return Math.round(active.reduce((s: number, g: any) => s + (g.progress ?? 0), 0) / active.length);
+    return Math.round(
+      active.reduce((s, g) => s + goals.progressPercent(g.currentValue, g.targetValue), 0) / active.length
+    );
   }, [goalsArr]);
 
   const stepsScore = useMemo(() => {
-    const steps = healthData?.steps ?? data?.steps ?? 0;
+    const steps = healthToday?.steps ?? data?.steps ?? 0;
     return Math.min(100, Math.round((steps / 10000) * 100));
-  }, [healthData, data]);
+  }, [healthToday, data]);
 
   const lifeBalance = patterns.lifeBalance ?? 70;
   const topStreak = useMemo(() =>
-    habitsArr.reduce((max: any, h: any) => (!max || h.streak > max.streak ? h : max), null),
+    habitsArr.reduce<HabitData | null>((max, h) => (!max || h.streak > max.streak ? h : max), null),
     [habitsArr]
   );
 
-  const activeGoals = goalsArr.filter((g: any) => g.status === 'active').length;
+  const activeGoals = goalsArr.filter((g) => g.status === 'active').length;
   const dayFocus = data?.dashboard?.dayFocus ?? topStreak?.title ?? 'Defina seu foco do dia';
   const energy = data?.dashboard?.energy ?? (lifeBalance >= 70 ? 'high' : lifeBalance >= 40 ? 'medium' : 'low');
 
@@ -143,7 +150,7 @@ export function DashboardHero({ data, onOpenCopilot }: DashboardHeroProps) {
         </View>
         <View style={styles.statDivider} />
         <View style={styles.stat}>
-          <Text style={styles.statVal}>{habitsArr.filter((h: any) => h.completedToday).length}/{habitsArr.length}</Text>
+          <Text style={styles.statVal}>{habitsArr.filter((h) => habits.isCompletedToday(h)).length}/{habitsArr.length}</Text>
           <Text style={styles.statLab}>hábitos hoje</Text>
         </View>
       </View>

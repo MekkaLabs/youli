@@ -4,7 +4,7 @@
  */
 import React, { useCallback } from 'react';
 import { Share, TouchableOpacity, Text, StyleSheet, View } from 'react-native';
-import { useHabits } from '../../hooks/useHabits';
+import { useHabits, type HabitData } from '../../hooks/useHabits';
 import { useGoals } from '../../hooks/useGoals';
 import { useLifePatterns } from '../../hooks/useLifePatterns';
 import { useXP } from '../../hooks/useXP';
@@ -21,17 +21,17 @@ export function ShareProgressButton({ style, compact = false }: ShareCardProps) 
   const { xpData } = useXP();
 
   const handleShare = useCallback(async () => {
-    const habitsArr = (habits as any).habits ?? [];
-    const goalsArr = (goals as any).goals ?? [];
+    const habitsArr = habits.habits ?? [];
+    const goalsArr = goals.goals ?? [];
 
-    const topStreak = habitsArr.reduce(
-      (max: any, h: any) => (!max || h.streak > max.streak ? h : max), null
+    const topStreak = habitsArr.reduce<HabitData | null>(
+      (max, h) => (!max || h.streak > max.streak ? h : max), null
     );
-    const activeGoals = goalsArr.filter((g: any) => g.status === 'active');
+    const activeGoals = goalsArr.filter((g) => g.status === 'active');
     const avgGoalProgress = activeGoals.length
-      ? Math.round(activeGoals.reduce((s: number, g: any) => s + (g.progress ?? 0), 0) / activeGoals.length)
+      ? Math.round(activeGoals.reduce((s, g) => s + goals.progressPercent(g.currentValue, g.targetValue), 0) / activeGoals.length)
       : 0;
-    const habitsToday = habitsArr.filter((h: any) => h.completedToday).length;
+    const habitsToday = habitsArr.filter((h) => habits.isCompletedToday(h)).length;
 
     const lifeScore = patterns.lifeBalance ?? 70;
     const scoreEmoji = lifeScore >= 80 ? '🚀' : lifeScore >= 60 ? '💪' : lifeScore >= 40 ? '📈' : '🌱';

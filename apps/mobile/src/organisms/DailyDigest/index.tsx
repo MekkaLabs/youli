@@ -30,9 +30,17 @@ import Animated, {
 } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDailyDigest } from '../../hooks/useDailyDigest';
-import { useHabits } from '../../hooks/useHabits';
-import { useGoals } from '../../hooks/useGoals';
+import { useHabits, type HabitData } from '../../hooks/useHabits';
+import { useGoals, type GoalData } from '../../hooks/useGoals';
 import { useFinance } from '../../hooks/useFinance';
+import { logWarn } from '../../services/logger';
+
+interface DigestApiData {
+  primaryAgent?: {
+    insights?: string[];
+    agentName?: string;
+  };
+}
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3002';
 
@@ -119,13 +127,14 @@ export function DailyDigest({ autoOpen = true, onClose }: DailyDigestProps) {
       if (res?.ok) {
         const data = await res.json();
         // Usa resposta da API
-        setSections(buildSectionsFromData(data, habits, goals, monthlySummary, adamInsight, isCompletedToday));
+        setSections(buildSectionsFromData(data, habits, goals, adamInsight, isCompletedToday));
       } else {
         // Fallback: gera localmente
-        setSections(buildSectionsLocal(habits, goals, monthlySummary, adamInsight, isCompletedToday));
+        setSections(buildSectionsLocal(habits, goals, adamInsight, isCompletedToday));
       }
-    } catch {
-      setSections(buildSectionsLocal(habits, goals, monthlySummary, adamInsight, isCompletedToday));
+    } catch (e) {
+      logWarn('DailyDigest:loadDigest', e);
+      setSections(buildSectionsLocal(habits, goals, adamInsight, isCompletedToday));
     }
     setLoading(false);
   }, [habits, goals, monthlySummary, adamInsight, isCompletedToday, progressPercent, goalStatus]);
@@ -256,7 +265,7 @@ export function DailyDigest({ autoOpen = true, onClose }: DailyDigestProps) {
 
 // ─── Builders de seções ────────────────────────────────────────────────────
 
-function buildSectionsLocal(habits: any[], goals: any[], finance: any, adamInsight: string, isCompletedToday: any): DigestSection[] {
+function buildSectionsLocal(habits: HabitData[], goals: GoalData[], adamInsight: string, isCompletedToday: (h: HabitData) => boolean): DigestSection[] {
   const sections: DigestSection[] = [];
   const completedHabits = habits.filter(h => isCompletedToday(h)).length;
 
@@ -272,12 +281,12 @@ function buildSectionsLocal(habits: any[], goals: any[], finance: any, adamInsig
   });
 
   // Metas
-  const activeGoals = goals.filter((g: any) => g.status !== 'completed');
+  const activeGoals = goals.filter((g) => g.status !== 'completed');
   if (activeGoals.length > 0) {
     sections.push({
       icon: '⚔️',
       title: 'Metas',
-      content: `${activeGoals.length} meta${activeGoals.length !== 1 ? 's' : ''} ativa${activeGoals.length !== 1 ? 's' : ''}. ${goals.filter((g: any) => g.status === 'at_risk').length > 0 ? 'Algumas precisam de atenção urgente.' : 'Continue no ritmo!'}`,
+      content: `${activeGoals.length} meta${activeGoals.length !== 1 ? 's' : ''} ativa${activeGoals.length !== 1 ? 's' : ''}. ${goals.filter((g) => g.status === 'at_risk').length > 0 ? 'Algumas precisam de atenção urgente.' : 'Continue no ritmo!'}`,
       color: '#DC2626',
       agent: 'Alexandre',
     });
@@ -295,18 +304,19 @@ function buildSectionsLocal(habits: any[], goals: any[], finance: any, adamInsig
   return sections;
 }
 
-function buildSectionsFromData(data: any, habits: any[], goals: any[], finance: any, adamInsight: string, isCompletedToday: any): DigestSection[] {
+function buildSectionsFromData(data: DigestApiData | null, habits: HabitData[], goals: GoalData[], adamInsight: string, isCompletedToday: (h: HabitData) => boolean): DigestSection[] {
   // Se a API retornou uma resposta estruturada, usa ela
-  if (data?.primaryAgent?.insights?.length > 0) {
-    return data.primaryAgent.insights.slice(0, 3).map((insight: string, i: number) => ({
+  const insights = data?.primaryAgent?.insights;
+  if (insights && insights.length > 0) {
+    return insights.slice(0, 3).map((insight, i) => ({
       icon: ['🌅', '⚡', '🎯'][i] ?? '📌',
       title: ['Prioridade do dia', 'Ação imediata', 'Foco'][i] ?? 'Insight',
       content: insight,
       color: ['#7C3AED', '#D97706', '#059669'][i] ?? '#6B7280',
-      agent: data.primaryAgent?.agentName ?? 'Youli',
+      agent: data?.primaryAgent?.agentName ?? 'Youli',
     }));
   }
-  return buildSectionsLocal(habits, goals, finance, adamInsight, isCompletedToday);
+  return buildSectionsLocal(habits, goals, adamInsight, isCompletedToday);
 }
 
 const styles = StyleSheet.create({

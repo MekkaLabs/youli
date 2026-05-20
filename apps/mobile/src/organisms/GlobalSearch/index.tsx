@@ -12,6 +12,8 @@ import { useTasks } from '../../hooks/useTasks';
 import { useHabits } from '../../hooks/useHabits';
 import { useGoals } from '../../hooks/useGoals';
 import { motionEnter } from '../../theme/motion';
+import type { HabitData } from '../../hooks/useHabits';
+import type { GoalData } from '../../hooks/useGoals';
 
 type ResultType = 'task' | 'habit' | 'goal';
 
@@ -42,8 +44,8 @@ export function GlobalSearch({ visible, onClose }: GlobalSearchProps) {
   const habits = useHabits();
   const goals = useGoals();
 
-  const habitsArr = (habits as any).habits ?? [];
-  const goalsArr = (goals as any).goals ?? [];
+  const habitsArr = habits.habits ?? [];
+  const goalsArr = goals.goals ?? [];
 
   const results = useMemo((): SearchResult[] => {
     if (!query.trim() || query.length < 2) return [];
@@ -60,9 +62,9 @@ export function GlobalSearch({ visible, onClose }: GlobalSearchProps) {
       }));
 
     const habitResults: SearchResult[] = habitsArr
-      .filter((h: any) => h.title.toLowerCase().includes(q) || h.category?.toLowerCase().includes(q))
+      .filter((h: HabitData) => h.title.toLowerCase().includes(q) || h.category?.toLowerCase().includes(q))
       .slice(0, 5)
-      .map((h: any) => ({
+      .map((h: HabitData) => ({
         id: h.id, type: 'habit', title: h.title,
         subtitle: `${h.streak} dias de streak · ${h.category}`,
         icon: h.emoji ?? '🔥', color: '#059669',
@@ -70,14 +72,17 @@ export function GlobalSearch({ visible, onClose }: GlobalSearchProps) {
       }));
 
     const goalResults: SearchResult[] = goalsArr
-      .filter((g: any) => g.title.toLowerCase().includes(q) || g.category?.toLowerCase().includes(q))
+      .filter((g: GoalData) => g.title.toLowerCase().includes(q) || g.category?.toLowerCase().includes(q))
       .slice(0, 5)
-      .map((g: any) => ({
-        id: g.id, type: 'goal', title: g.title,
-        subtitle: `${g.progress ?? Math.round((g.currentValue / g.targetValue) * 100)}% · ${g.category}`,
-        icon: g.emoji ?? '🎯', color: '#7C3AED',
-        meta: `${g.progress ?? Math.round((g.currentValue / g.targetValue) * 100)}%`,
-      }));
+      .map((g: GoalData) => {
+        const pct = goals.progressPercent(g.currentValue, g.targetValue);
+        return {
+          id: g.id, type: 'goal', title: g.title,
+          subtitle: `${pct}% · ${g.category}`,
+          icon: g.emoji ?? '🎯', color: '#7C3AED',
+          meta: `${pct}%`,
+        };
+      });
 
     return [...taskResults, ...habitResults, ...goalResults].slice(0, 12);
   }, [query, tasks, habitsArr, goalsArr]);
