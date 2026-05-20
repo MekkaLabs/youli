@@ -9,11 +9,20 @@ dist/
 build/
 out/
 expo-env.d.ts
+next-env.d.ts
+*.tsbuildinfo
+
+# Backups locais de config (dev)
+*.before-dev-fix
+youli-obsidian-sync.json
 
 # Env files
 .env
 .env.local
 .env.*.local
+.env.local.backup.*
+.env.backup.*
+.env.*.backup.*
 !.env.example
 
 # Expo

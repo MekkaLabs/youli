@@ -4,13 +4,15 @@
  */
 import { NextResponse } from 'next/server';
 import { buildFitnessSummary } from '@/services/integrations/fitness-bridge';
+import { jsonError, requireAuth } from '@/lib/http';
 
 export async function GET() {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   try {
     const summary = buildFitnessSummary();
     return NextResponse.json(summary);
   } catch (err) {
-    console.error('[fitness/summary]', err);
-    return NextResponse.json({ error: 'Erro ao agregar dados de fitness' }, { status: 500 });
+    return jsonError('Erro ao agregar dados de fitness', 500, err, 'GET /api/fitness/summary');
   }
 }

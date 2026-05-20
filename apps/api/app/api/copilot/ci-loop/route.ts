@@ -2,20 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { runFullCILoop, getLastRun, getCILoopSummary } from '@/services/agents/life-ci-loop';
 import { analyzeGaps } from '@/services/agents/life-gap-analyzer';
 import { calculateANC } from '@/services/agents/anc-scorer';
+import { jsonError, requireAuth } from '@/lib/http';
 
-// GET /api/copilot/ci-loop?userId=xxx — retorna último run + gaps + ANC
-export async function GET(request: NextRequest) {
+// GET /api/copilot/ci-loop — retorna último run + gaps + ANC do usuário autenticado
+export async function GET(_request: NextRequest) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
+  const userId = auth.user.id;
+
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Parâmetro userId é obrigatório' },
-        { status: 400 }
-      );
-    }
-
     const lastRun = getLastRun(userId);
     const summary = getCILoopSummary(userId);
 
@@ -38,29 +33,21 @@ export async function GET(request: NextRequest) {
       ancScore,
       summary,
     });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erro interno ao buscar loop CI' },
-      { status: 500 }
-    );
+  } catch (err) {
+    return jsonError('Erro interno ao buscar loop CI', 500, err, 'GET /api/copilot/ci-loop');
   }
 }
 
-// POST /api/copilot/ci-loop — executa loop CI completo
-// Body: { userId: string, context: Record<string, unknown> }
+// POST /api/copilot/ci-loop — executa loop CI completo para o usuário autenticado
+// Body: { context: Record<string, unknown> }
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
+  const userId = auth.user.id;
+
   try {
-    const body = await request.json() as { userId?: string; context?: Record<string, unknown> };
-    const { userId, context } = body;
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Campo userId é obrigatório no body' },
-        { status: 400 }
-      );
-    }
-
-    const ctx = context ?? {};
+    const body = await request.json().catch(() => ({})) as { context?: Record<string, unknown> };
+    const ctx = body.context ?? {};
 
     const [ciRunResult, gapsResult, ancResult] = await Promise.allSettled([
       runFullCILoop(userId, ctx),
@@ -93,10 +80,7 @@ export async function POST(request: NextRequest) {
       },
       { status: ciRun ? 200 : 500 }
     );
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erro interno ao executar loop CI' },
-      { status: 500 }
-    );
+  } catch (err) {
+    return jsonError('Erro interno ao executar loop CI', 500, err, 'POST /api/copilot/ci-loop');
   }
 }

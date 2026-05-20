@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { UserProfile } from '@youli/shared';
 import { readDb, writeDb } from '../../../../src/repositories/local-db';
+import { requireAuth } from '@/lib/http';
 
 export async function GET() {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   return NextResponse.json(readDb().profile);
 }
 
@@ -22,6 +25,8 @@ function validatePatch(body: Partial<UserProfile>): string | null {
 }
 
 async function updateProfile(req: Request) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   const body = (await req.json().catch(() => ({}))) as Partial<UserProfile>;
   const err = validatePatch(body);
   if (err) return NextResponse.json({ error: err }, { status: 400 });

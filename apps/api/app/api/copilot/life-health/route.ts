@@ -17,6 +17,7 @@ import { scoreMaintainability } from '@/services/agents/maintainability-scorer';
 import { analyzeGaps } from '@/services/agents/life-gap-analyzer';
 import { getLastPipeline } from '@/services/agents/ci-weekly-pipeline';
 import { getRuntimeConfig } from '@/services/agents/runtime-config';
+import { jsonError, requireAuth } from '@/lib/http';
 
 export interface LifeHealthPayload {
   userId: string;
@@ -52,9 +53,10 @@ function ancToPercent(ancScore: number): number {
   return Math.round(((clamped + 1) / 2) * 100);
 }
 
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const userId = searchParams.get('userId') ?? 'default';
+export async function GET(_req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
+  const userId = auth.user.id;
   const runtimeConfig = getRuntimeConfig();
 
   try {
@@ -115,15 +117,16 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(payload);
   } catch (err) {
-    console.error('[life-health GET] Error:', err);
-    return NextResponse.json({ error: 'Erro ao calcular Life Health Score' }, { status: 500 });
+    return jsonError('Erro ao calcular Life Health Score', 500, err, 'GET /api/copilot/life-health');
   }
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   try {
-    const body = await req.json() as { userId?: string; context?: Record<string, unknown> };
-    const userId = body.userId ?? 'default';
+    const body = await req.json().catch(() => ({})) as { context?: Record<string, unknown> };
+    const userId = auth.user.id;
     const context = body.context ?? {};
     const runtimeConfig = getRuntimeConfig();
 
@@ -170,7 +173,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(payload);
   } catch (err) {
-    console.error('[life-health POST] Error:', err);
-    return NextResponse.json({ error: 'Erro ao calcular Life Health Score' }, { status: 500 });
+    return jsonError('Erro ao calcular Life Health Score', 500, err, 'POST /api/copilot/life-health');
   }
 }

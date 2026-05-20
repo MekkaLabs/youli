@@ -7,21 +7,19 @@ import {
   attributeFailureWithAI,
   generatePreventionPlan,
 } from '@/services/agents/failure-attribution';
+import { jsonError, requireAuth } from '@/lib/http';
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   try {
-    const body = (await req.json()) as {
-      userId?: string;
+    const body = (await req.json().catch(() => ({}))) as {
       area?: string;
       failedItem?: string;
       context?: Record<string, unknown>;
     };
 
-    const { userId, area, failedItem, context = {} } = body;
-
-    if (!userId) {
-      return NextResponse.json({ error: 'userId é obrigatório' }, { status: 400 });
-    }
+    const { area, failedItem, context = {} } = body;
 
     if (!area) {
       return NextResponse.json({ error: 'area é obrigatória' }, { status: 400 });
@@ -34,12 +32,8 @@ export async function POST(req: NextRequest) {
     const attribution = await attributeFailureWithAI(area, failedItem, context);
     const preventionPlan = generatePreventionPlan(attribution);
 
-    return NextResponse.json({ attribution, preventionPlan });
+    return NextResponse.json({ attribution, preventionPlan, userId: auth.user.id });
   } catch (err) {
-    console.error('[attribution/route] Error:', err);
-    return NextResponse.json(
-      { error: 'Erro ao atribuir falha' },
-      { status: 500 }
-    );
+    return jsonError('Erro ao atribuir falha', 500, err, 'POST /api/copilot/attribution');
   }
 }

@@ -1,40 +1,43 @@
+/**
+ * GET  /api/admin/users — lista todos os usuários (admin only)
+ * POST /api/admin/users — cria novo usuário (admin only)
+ */
 import { NextResponse } from 'next/server';
-import { getCurrentUserFromCookie, getAllUsers, createUser } from '../../../../src/services/auth';
+import { z } from 'zod';
+import { getAllUsers, createUser } from '@/services/auth';
+import { jsonError, parseJsonBody, requireAdmin } from '@/lib/http';
 
-// GET /api/admin/users — lista todos os usuários (admin only)
+export const runtime = 'nodejs';
+
+const CreateUserSchema = z.object({
+  name: z.string().min(1, 'name é obrigatório').max(120),
+  email: z.string().email('email inválido'),
+  password: z.string().min(6, 'senha deve ter no mínimo 6 caracteres'),
+  role: z.enum(['admin', 'user']).optional(),
+});
+
 export async function GET() {
-  const me = await getCurrentUserFromCookie();
-  if (!me) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
-  if (me.role !== 'admin') return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
-
-  const users = getAllUsers();
-  return NextResponse.json({ users });
+  const auth = await requireAdmin();
+  if (auth.error) return auth.response;
+  try {
+    return NextResponse.json({ users: getAllUsers() });
+  } catch (err) {
+    return jsonError('Erro ao listar usuários', 500, err, 'GET /api/admin/users');
+  }
 }
 
-// POST /api/admin/users — cria novo usuário (admin only)
 export async function POST(req: Request) {
-  const me = await getCurrentUserFromCookie();
-  if (!me) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
-  if (me.role !== 'admin') return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
+  const auth = await requireAdmin();
+  if (auth.error) return auth.response;
 
-  const body = (await req.json().catch(() => ({}))) as {
-    name?: string;
-    email?: string;
-    password?: string;
-    role?: 'admin' | 'user';
-  };
+  const parsed = await parseJsonBody(req, CreateUserSchema);
+  if (!parsed.ok) return parsed.response;
 
-  if (!body.name || !body.email || !body.password) {
-    return NextResponse.json({ error: 'name, email e password são obrigatórios.' }, { status: 400 });
+  try {
+    const result = await createUser(parsed.data);
+    if ('error' in result) return NextResponse.json(result, { status: 400 });
+    return NextResponse.json({ user: result }, { status: 201 });
+  } catch (err) {
+    return jsonError('Erro ao criar usuário', 500, err, 'POST /api/admin/users');
   }
-
-  const result = await createUser({
-    name: body.name,
-    email: body.email,
-    password: body.password,
-    role: body.role || 'user',
-  });
-
-  if ('error' in result) return NextResponse.json(result, { status: 400 });
-  return NextResponse.json({ user: result }, { status: 201 });
 }

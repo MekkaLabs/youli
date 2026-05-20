@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server';
 import type { CalendarEvent } from '@youli/shared';
 import { createCalendarEvent, listCalendarEvents } from '../../../../src/repositories/life-stream';
+import { requireAuth } from '@/lib/http';
 
 export async function GET() {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   return NextResponse.json(listCalendarEvents());
 }
 
 export async function POST(req: Request) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   const body = (await req.json()) as Partial<CalendarEvent>;
   const created = createCalendarEvent({
     id: body.id || `cal-${Date.now()}`,

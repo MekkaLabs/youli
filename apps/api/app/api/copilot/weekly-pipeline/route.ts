@@ -7,38 +7,29 @@ import {
   loadPipelineHistory,
   getLastPipeline,
 } from '@/services/agents/ci-weekly-pipeline';
+import { jsonError, requireAuth } from '@/lib/http';
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get('userId') ?? 'default';
+    const userId = auth.user.id;
     const last = getLastPipeline(userId);
     const history = loadPipelineHistory(userId);
     return NextResponse.json({ last, history, count: history.length });
   } catch (err) {
-    console.error('[weekly-pipeline GET] Error:', err);
-    return NextResponse.json(
-      { error: 'Erro ao carregar histórico do pipeline' },
-      { status: 500 }
-    );
+    return jsonError('Erro ao carregar histórico do pipeline', 500, err, 'GET /api/copilot/weekly-pipeline');
   }
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   try {
-    const body = await req.json();
-    const { userId = 'default', context = {} } = body as {
-      userId?: string;
-      context?: Record<string, unknown>;
-    };
-
-    const result = await runWeeklyPipeline(userId, context);
+    const body = (await req.json().catch(() => ({}))) as { context?: Record<string, unknown> };
+    const result = await runWeeklyPipeline(auth.user.id, body.context ?? {});
     return NextResponse.json(result);
   } catch (err) {
-    console.error('[weekly-pipeline POST] Error:', err);
-    return NextResponse.json(
-      { error: 'Erro ao executar pipeline semanal' },
-      { status: 500 }
-    );
+    return jsonError('Erro ao executar pipeline semanal', 500, err, 'POST /api/copilot/weekly-pipeline');
   }
 }

@@ -5,21 +5,33 @@
   "outputDirectory": ".next",
   "installCommand": "cd ../.. && npm install",
   "regions": ["gru1"],
-"functions": {
-    "app/api/copilot/**": {
-      "maxDuration": 30
-    },
-    "app/api/auth/**": {
-      "maxDuration": 10
-    }
+  "functions": {
+    "app/api/copilot/**": { "maxDuration": 60 },
+    "app/api/orchestrator/**": { "maxDuration": 60 },
+    "app/api/auth/**": { "maxDuration": 10 },
+    "app/api/open-finance/**": { "maxDuration": 30 },
+    "app/api/integrations/**": { "maxDuration": 30 }
   },
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Credentials", "value": "true" },
         { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PATCH,DELETE,OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "Content-Type,Authorization" }
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type,Authorization,X-Youli-Admin-Token" },
+        { "key": "Vary", "value": "Origin" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "no-referrer-when-downgrade" }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(self), geolocation=(self)" }
       ]
     }
   ]

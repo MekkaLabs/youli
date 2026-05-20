@@ -9,6 +9,7 @@ import {
   saveRequirementDoc,
   type LifeRequirementDoc,
 } from '@/services/agents/requirements-doc-generator';
+import { jsonError, requireAuth } from '@/lib/http';
 
 interface LifeGap {
   area: string;
@@ -22,18 +23,15 @@ interface LifeGap {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   try {
-    const body = (await req.json()) as {
-      userId?: string;
+    const body = (await req.json().catch(() => ({}))) as {
       gaps?: LifeGap[];
       context?: Record<string, unknown>;
     };
 
-    const { userId, gaps, context = {} } = body;
-
-    if (!userId) {
-      return NextResponse.json({ error: 'userId é obrigatório' }, { status: 400 });
-    }
+    const { gaps, context = {} } = body;
 
     if (!Array.isArray(gaps) || gaps.length === 0) {
       return NextResponse.json(
@@ -49,15 +47,11 @@ export async function POST(req: NextRequest) {
     );
 
     for (const doc of docs) {
-      saveRequirementDoc(userId, doc);
+      saveRequirementDoc(auth.user.id, doc);
     }
 
     return NextResponse.json({ docs });
   } catch (err) {
-    console.error('[requirements/route] Error:', err);
-    return NextResponse.json(
-      { error: 'Erro ao gerar documentos de requisitos' },
-      { status: 500 }
-    );
+    return jsonError('Erro ao gerar documentos de requisitos', 500, err, 'POST /api/copilot/requirements');
   }
 }

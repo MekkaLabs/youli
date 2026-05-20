@@ -5,15 +5,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { syncStravaActivities } from '@/services/integrations/strava';
 import { bridgeStravaToSWECI } from '@/services/integrations/fitness-bridge';
+import { logError, requireAuth } from '@/lib/http';
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   try {
-    const body = await req.json().catch(() => ({})) as { userId?: string; daysBack?: number };
-    const userId  = body.userId ?? 'default';
+    const body = await req.json().catch(() => ({})) as { daysBack?: number };
     const daysBack = body.daysBack ?? 30;
+    const userId = auth.user.id;
 
     const syncResult = await syncStravaActivities(daysBack);
-    const bridge     = bridgeStravaToSWECI(userId, syncResult);
+    const bridge = bridgeStravaToSWECI(userId, syncResult);
 
     return NextResponse.json({
       ok: true,
@@ -22,6 +25,7 @@ export async function POST(req: NextRequest) {
       sweci: bridge,
     });
   } catch (err) {
+    logError('POST /api/integrations/strava/sync', err);
     const msg = err instanceof Error ? err.message : 'Sync error';
     const status = msg.includes('not connected') ? 401 : 500;
     return NextResponse.json({ ok: false, error: msg }, { status });

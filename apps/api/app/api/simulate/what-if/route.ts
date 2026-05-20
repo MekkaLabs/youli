@@ -4,6 +4,7 @@
  * uma análise do impacto nas métricas de vida (90 dias)
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { logError } from '@/lib/http';
 
 interface WhatIfRequest {
   scenario: string;
@@ -107,7 +108,8 @@ export async function POST(req: NextRequest) {
 
     const result = analyzeScenario(scenario.trim(), currentMetrics);
     return NextResponse.json(result);
-  } catch {
+  } catch (err) {
+    logError('POST /api/simulate/what-if', err);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

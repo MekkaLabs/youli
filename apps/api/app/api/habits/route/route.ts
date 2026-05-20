@@ -2,13 +2,18 @@ import { NextResponse } from 'next/server';
 import { listHabits, createHabit, checkinHabit, deleteHabit } from '../../../../src/repositories/supabase/habits';
 import { interpretHabit } from '../../../../src/services/habit-llm';
 import { readDb } from '../../../../src/repositories/local-db';
+import { requireAuth } from '@/lib/http';
 
 export async function GET() {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   const habits = await listHabits();
   return NextResponse.json(habits);
 }
 
 export async function POST(req: Request) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   const body = await req.json().catch(() => ({}));
   const db = readDb();
   const profile = db.profile;
@@ -18,6 +23,8 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   const body = await req.json().catch(() => ({}));
   if (!body.id) return NextResponse.json({ error: 'id obrigatório' }, { status: 400 });
   if (body.action === 'checkin') {
@@ -28,6 +35,8 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   const body = await req.json().catch(() => ({}));
   const id = typeof body?.id === 'string' ? body.id : '';
   if (!id) return NextResponse.json({ error: 'id obrigatório' }, { status: 400 });

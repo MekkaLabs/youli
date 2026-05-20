@@ -14,6 +14,7 @@ import {
   loadEvolutionStore,
   type EvolutionSequence,
 } from '@/services/agents/life-evolution-tracker';
+import { jsonError, requireAuth } from '@/lib/http';
 
 export interface EvolutionHistoryPayload {
   userId: string;
@@ -26,10 +27,12 @@ export interface EvolutionHistoryPayload {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
+  const userId = auth.user.id;
   const { searchParams } = new URL(req.url);
-  const userId = searchParams.get('userId') ?? 'default';
-  const area   = searchParams.get('area') ?? 'all';
-  const days   = Math.min(365, Math.max(7, parseInt(searchParams.get('days') ?? '30', 10)));
+  const area = searchParams.get('area') ?? 'all';
+  const days = Math.min(365, Math.max(7, parseInt(searchParams.get('days') ?? '30', 10)));
 
   try {
     let sequences: EvolutionSequence[];
@@ -74,8 +77,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(payload);
   } catch (err) {
-    console.error('[evolution-history GET] Error:', err);
-    return NextResponse.json({ error: 'Erro ao carregar histórico de evolução' }, { status: 500 });
+    return jsonError('Erro ao carregar histórico de evolução', 500, err, 'GET /api/copilot/evolution-history');
   }
 }
 
@@ -87,12 +89,13 @@ export async function GET(req: NextRequest) {
 import { recordEvolutionPoint } from '@/services/agents/life-evolution-tracker';
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   try {
-    const body = await req.json() as {
-      userId?: string;
-      area: string;
-      metric: string;
-      value: number;
+    const body = (await req.json().catch(() => ({}))) as {
+      area?: string;
+      metric?: string;
+      value?: number;
       tag?: 'checkin' | 'ci_loop' | 'manual' | 'auto';
     };
 
@@ -103,9 +106,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const userId = body.userId ?? 'default';
     const point = recordEvolutionPoint(
-      userId,
+      auth.user.id,
       body.area,
       body.metric,
       body.value,
@@ -114,7 +116,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, point });
   } catch (err) {
-    console.error('[evolution-history POST] Error:', err);
-    return NextResponse.json({ error: 'Erro ao registrar ponto de evolução' }, { status: 500 });
+    return jsonError('Erro ao registrar ponto de evolução', 500, err, 'POST /api/copilot/evolution-history');
   }
 }
