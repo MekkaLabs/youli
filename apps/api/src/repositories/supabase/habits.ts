@@ -4,8 +4,17 @@ import { readDb, writeDb } from '../local-db';
 
 const PROFILE_ID = process.env.YOULI_PROFILE_ID || '';
 
-function rowToHabit(r: any): Habit {
-  return { id: r.id, title: r.title, frequency: r.frequency, streak: r.streak, goalId: r.goal_id };
+interface HabitRow {
+  id: string;
+  title: string;
+  frequency: Habit['frequency'];
+  streak: number;
+  goal_id?: string | null;
+  last_done?: string | null;
+}
+
+function rowToHabit(r: HabitRow): Habit {
+  return { id: r.id, title: r.title, frequency: r.frequency, streak: r.streak, goalId: r.goal_id ?? undefined };
 }
 
 export async function listHabits(): Promise<Habit[]> {
@@ -38,19 +47,15 @@ export async function checkinHabit(id: string): Promise<Habit> {
     if (h) { h.streak++; writeDb(db); return h; }
     throw new Error('Habit not found');
   }
-  // Registra log e incrementa streak
+  // Registra log e incrementa streak (read-then-write: o streak depende do valor atual)
   const today = new Date().toISOString().split('T')[0];
   await supabase!.from('habit_logs').upsert({ habit_id: id, profile_id: PROFILE_ID, done_at: today });
+  const { data: cur } = await supabase!.from('habits').select('*').eq('id', id).single();
   const { data, error } = await supabase!
     .from('habits')
-    .update({ streak: supabase!.rpc('increment', { table: 'habits', id }) as any, last_done: today })
+    .update({ streak: (cur?.streak ?? 0) + 1, last_done: today })
     .eq('id', id).select().single();
-  if (error) {
-    // fallback: busca e incrementa manualmente
-    const { data: cur } = await supabase!.from('habits').select('*').eq('id', id).single();
-    const { data: upd } = await supabase!.from('habits').update({ streak: (cur?.streak ?? 0) + 1, last_done: today }).eq('id', id).select().single();
-    return rowToHabit(upd);
-  }
+  if (error) throw new Error(error.message);
   return rowToHabit(data);
 }
 

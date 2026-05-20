@@ -37,6 +37,32 @@ export interface GraphContext {
   summary: string;  // Resumo legível para passar ao agente
 }
 
+// Linha retornada pela RPC get_area_relationships
+interface AreaRelationshipRow {
+  source_label: string;
+  source_area: string;
+  relation_type: string;
+  strength: number;
+  target_label: string;
+  target_area: string;
+  evidence?: string;
+  confidence?: number;
+}
+
+// Snapshot de dados de vida usado na descoberta de correlações
+interface SnapshotTask { status?: string }
+interface SnapshotHabit { streak?: number }
+interface SnapshotGoal { progress?: number }
+interface SnapshotFitness { weeklyActivities?: number }
+interface SnapshotFinances { income?: number; expenses?: number; balance?: number }
+export interface LifeSnapshot {
+  tasks?: SnapshotTask[];
+  habits?: SnapshotHabit[];
+  goals?: SnapshotGoal[];
+  fitness?: SnapshotFitness | null;
+  finances?: SnapshotFinances | null;
+}
+
 // ──────────────────────────────────────────────
 // REGISTRO DE RELAÇÕES
 // ──────────────────────────────────────────────
@@ -108,7 +134,7 @@ export async function getAreaGraphContext(
       p_min_strength: minStrength,
     });
 
-    const relations: LifeRelation[] = (data || []).map((r: any) => ({
+    const relations: LifeRelation[] = ((data as AreaRelationshipRow[] | null) || []).map((r) => ({
       sourceLabel: r.source_label,
       sourceArea: r.source_area,
       relationType: r.relation_type as RelationType,
@@ -133,18 +159,12 @@ export async function getAreaGraphContext(
  */
 export async function autoDiscoverCorrelations(
   profileId: string,
-  snapshot: {
-    tasks?: any[];
-    habits?: any[];
-    goals?: any[];
-    fitness?: any;
-    finances?: any;
-  }
+  snapshot: LifeSnapshot
 ): Promise<LifeRelation[]> {
   const discovered: LifeRelation[] = [];
 
   // Regra 1: Hábitos fortes → produtividade alta
-  const strongHabits = snapshot.habits?.filter((h) => h.streak >= 7) || [];
+  const strongHabits = snapshot.habits?.filter((h) => (h.streak ?? 0) >= 7) || [];
   const completedTasks = snapshot.tasks?.filter((t) => t.status === 'done') || [];
 
   if (strongHabits.length >= 3 && completedTasks.length >= 5) {
@@ -163,7 +183,7 @@ export async function autoDiscoverCorrelations(
 
   // Regra 2: Atividade física → metas em progresso
   const weeklyActivities = snapshot.fitness?.weeklyActivities || 0;
-  const goalsOnTrack = snapshot.goals?.filter((g) => g.progress >= 50) || [];
+  const goalsOnTrack = snapshot.goals?.filter((g) => (g.progress ?? 0) >= 50) || [];
 
   if (weeklyActivities >= 3 && goalsOnTrack.length > 0) {
     const rel: LifeRelation = {
@@ -181,7 +201,8 @@ export async function autoDiscoverCorrelations(
 
   // Regra 3: Finanças negativas bloqueiam bem-estar
   if (snapshot.finances) {
-    const { balance, expenses, income } = snapshot.finances;
+    const income = snapshot.finances.income ?? 0;
+    const expenses = snapshot.finances.expenses ?? 0;
     const savingsRate = income > 0 ? (income - expenses) / income : 0;
 
     if (savingsRate < 0.1) {

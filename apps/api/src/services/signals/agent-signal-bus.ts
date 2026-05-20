@@ -54,6 +54,53 @@ export interface ProcessedSignal {
 }
 
 // ──────────────────────────────────────────────
+// CONTEXTO DE VIDA (input do detector)
+// ──────────────────────────────────────────────
+
+export interface LifeContextTask {
+  title?: string;
+  status?: string;
+  priority?: number;
+}
+export interface LifeContextHabit {
+  title?: string;
+  streak?: number;
+  frequency?: string;
+}
+export interface LifeContextGoal {
+  title?: string;
+  progress?: number;
+  deadline?: string | null;
+}
+export interface LifeContextFinances {
+  income?: number;
+  expenses?: number;
+}
+export interface LifeContextFitness {
+  weeklyActivities?: number;
+  lastActivity?: string | null;
+}
+export interface LifeContext {
+  tasks?: LifeContextTask[];
+  habits?: LifeContextHabit[];
+  goals?: LifeContextGoal[];
+  finances?: LifeContextFinances | null;
+  fitness?: LifeContextFitness | null;
+}
+
+// ──────────────────────────────────────────────
+// PAYLOADS TIPADOS POR TIPO DE SINAL
+// ──────────────────────────────────────────────
+
+interface TaskCompletedPayload { taskTitle: string; priority: number }
+interface HabitStreakBrokenPayload { habits: string[]; count: number }
+interface HabitMilestonePayload { habitTitle: string; streak: number }
+interface GoalAtRiskPayload { goals: { title?: string; progress?: number }[] }
+interface FinanceAlertPayload { savingsRate: number; message: string }
+interface FitnessInactivePayload { daysInactive: number; lastActivity?: string | null }
+interface PatternDetectedPayload { pattern: string; confidence: number }
+
+// ──────────────────────────────────────────────
 // ENVIO DE SINAL
 // ──────────────────────────────────────────────
 
@@ -95,19 +142,13 @@ export async function sendSignal(
  */
 export async function processSignals(
   profileId: string,
-  context: {
-    tasks?: any[];
-    habits?: any[];
-    goals?: any[];
-    finances?: any;
-    fitness?: any;
-  }
+  context: LifeContext
 ): Promise<ProcessedSignal[]> {
   const signals = await detectSignals(profileId, context);
   const processed: ProcessedSignal[] = [];
 
   for (const signal of signals) {
-    const response = await handleSignal(signal, context);
+    const response = await handleSignal(signal);
     if (response) {
       processed.push({
         signalId: `sig-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -134,14 +175,13 @@ export async function processSignals(
 
 async function detectSignals(
   profileId: string,
-  ctx: any
+  ctx: LifeContext
 ): Promise<AgentSignal[]> {
   const signals: AgentSignal[] = [];
-  const now = new Date();
 
   // ── Franklin → Alexandre: tarefa crítica concluída
   const criticalDone = ctx.tasks?.filter(
-    (t: any) => t.status === 'done' && t.priority >= 4
+    (t) => t.status === 'done' && (t.priority ?? 0) >= 4
   ) || [];
   for (const task of criticalDone.slice(0, 2)) {
     signals.push({
@@ -154,19 +194,19 @@ async function detectSignals(
   }
 
   // ── Aristóteles → Sócrates: streak quebrado
-  const brokenHabits = ctx.habits?.filter((h: any) => h.streak === 0 && h.frequency === 'daily') || [];
+  const brokenHabits = ctx.habits?.filter((h) => h.streak === 0 && h.frequency === 'daily') || [];
   if (brokenHabits.length >= 2) {
     signals.push({
       fromAgent: 'aristoteles',
       toAgent: 'socrates',
       type: 'habit_streak_broken',
-      payload: { habits: brokenHabits.map((h: any) => h.title), count: brokenHabits.length },
+      payload: { habits: brokenHabits.map((h) => h.title), count: brokenHabits.length },
       priority: 'high',
     });
   }
 
   // ── Aristóteles → Marco: milestone de hábito
-  const milestoneHabits = ctx.habits?.filter((h: any) => [7, 21, 30, 66, 100].includes(h.streak)) || [];
+  const milestoneHabits = ctx.habits?.filter((h) => [7, 21, 30, 66, 100].includes(h.streak ?? -1)) || [];
   for (const habit of milestoneHabits.slice(0, 1)) {
     signals.push({
       fromAgent: 'aristoteles',
@@ -178,20 +218,21 @@ async function detectSignals(
   }
 
   // ── Alexandre → orchestrator: meta em risco
-  const atRiskGoals = ctx.goals?.filter((g: any) => g.progress < 20 && g.deadline) || [];
+  const atRiskGoals = ctx.goals?.filter((g) => (g.progress ?? 100) < 20 && g.deadline) || [];
   if (atRiskGoals.length > 0) {
     signals.push({
       fromAgent: 'alexandre',
       toAgent: '*',
       type: 'goal_at_risk',
-      payload: { goals: atRiskGoals.map((g: any) => ({ title: g.title, progress: g.progress })) },
+      payload: { goals: atRiskGoals.map((g) => ({ title: g.title, progress: g.progress })) },
       priority: 'high',
     });
   }
 
   // ── Adam → Marco: alerta financeiro
   if (ctx.finances) {
-    const { income, expenses } = ctx.finances;
+    const income = ctx.finances.income ?? 0;
+    const expenses = ctx.finances.expenses ?? 0;
     const savingsRate = income > 0 ? (income - expenses) / income : 0;
     if (savingsRate < 0.05) {
       signals.push({
@@ -235,13 +276,12 @@ async function detectSignals(
 // ──────────────────────────────────────────────
 
 async function handleSignal(
-  signal: AgentSignal,
-  ctx: any
+  signal: AgentSignal
 ): Promise<{ agentResponse: string; userImpact: string } | null> {
 
   const handlers: Partial<Record<SignalType, () => { agentResponse: string; userImpact: string } | null>> = {
     task_completed: () => {
-      const { taskTitle, priority } = signal.payload as any;
+      const { taskTitle } = signal.payload as unknown as TaskCompletedPayload;
       if (signal.toAgent === 'alexandre') {
         return {
           agentResponse: `Alexandre recebeu: tarefa crítica "${taskTitle}" concluída. Verificando impacto nas metas...`,
@@ -252,7 +292,7 @@ async function handleSignal(
     },
 
     habit_streak_broken: () => {
-      const { habits, count } = signal.payload as any;
+      const { habits, count } = signal.payload as unknown as HabitStreakBrokenPayload;
       return {
         agentResponse: `Sócrates recebeu alerta de Aristóteles: ${count} hábitos sem streak. Analisando padrão...`,
         userImpact: `🦉 Sócrates detectou: ${count} hábitos quebrados (${habits.slice(0,2).join(', ')}). O que está impedindo a consistência?`,
@@ -260,7 +300,7 @@ async function handleSignal(
     },
 
     habit_milestone: () => {
-      const { habitTitle, streak } = signal.payload as any;
+      const { habitTitle, streak } = signal.payload as unknown as HabitMilestonePayload;
       return {
         agentResponse: `Marco recebeu: marco de ${streak} dias em "${habitTitle}".`,
         userImpact: `👑 Marco Aurélio celebra: ${streak} dias de "${habitTitle}"! Isso revela disciplina genuína — parte do seu caráter.`,
@@ -268,15 +308,15 @@ async function handleSignal(
     },
 
     goal_at_risk: () => {
-      const { goals } = signal.payload as any;
+      const { goals } = signal.payload as unknown as GoalAtRiskPayload;
       return {
         agentResponse: `Broadcast de Alexandre: ${goals.length} meta(s) em risco. Todos os agentes em alerta.`,
-        userImpact: `⚔️ Alerta de Alexandre: ${(goals as any[])[0]?.title} com apenas ${(goals as any[])[0]?.progress}% de progresso. Intervenção necessária!`,
+        userImpact: `⚔️ Alerta de Alexandre: ${goals[0]?.title} com apenas ${goals[0]?.progress}% de progresso. Intervenção necessária!`,
       };
     },
 
     finance_alert: () => {
-      const { savingsRate } = signal.payload as any;
+      const { savingsRate } = signal.payload as unknown as FinanceAlertPayload;
       return {
         agentResponse: `Marco recebeu alerta crítico de Adam: taxa de poupança de ${savingsRate.toFixed(0)}%.`,
         userImpact: `💰 Adam Smith alerta: sua taxa de poupança está em ${savingsRate.toFixed(0)}% — risco para seus objetivos de vida.`,
@@ -284,13 +324,13 @@ async function handleSignal(
     },
 
     fitness_inactive: () => ({
-      agentResponse: `Sócrates recebeu alerta de Hipócrates: ${(signal.payload as any).daysInactive} dias sem atividade.`,
+      agentResponse: `Sócrates recebeu alerta de Hipócrates: ${(signal.payload as unknown as FitnessInactivePayload).daysInactive} dias sem atividade.`,
       userImpact: `🏃 Hipócrates preocupado: sem treinos esta semana. O corpo é o templo da mente.`,
     }),
 
     pattern_detected: () => ({
-      agentResponse: `Sócrates detectou padrão emergente: ${(signal.payload as any).pattern}`,
-      userImpact: `🦉 Sócrates descobriu um padrão: ${(signal.payload as any).pattern}`,
+      agentResponse: `Sócrates detectou padrão emergente: ${(signal.payload as unknown as PatternDetectedPayload).pattern}`,
+      userImpact: `🦉 Sócrates descobriu um padrão: ${(signal.payload as unknown as PatternDetectedPayload).pattern}`,
     }),
   };
 
@@ -302,23 +342,23 @@ async function handleSignal(
 // DETECÇÃO DE PADRÕES EMERGENTES (Sócrates)
 // ──────────────────────────────────────────────
 
-function detectEmergingPattern(ctx: any): string | null {
+function detectEmergingPattern(ctx: LifeContext): string | null {
   const habits = ctx.habits || [];
   const tasks = ctx.tasks || [];
   const fitness = ctx.fitness || {};
 
   // Padrão: hábitos fortes + tarefas em alta + fitness ok = estado de flow
-  const strongHabits = habits.filter((h: any) => h.streak >= 7).length;
-  const doneTasks = tasks.filter((t: any) => t.status === 'done').length;
-  const activeFitness = fitness.weeklyActivities >= 3;
+  const strongHabits = habits.filter((h) => (h.streak ?? 0) >= 7).length;
+  const doneTasks = tasks.filter((t) => t.status === 'done').length;
+  const activeFitness = (fitness.weeklyActivities ?? 0) >= 3;
 
   if (strongHabits >= 3 && doneTasks >= 5 && activeFitness) {
     return 'Você está em estado de FLOW: hábitos fortes + alta execução + corpo ativo. Momento ideal para atacar metas audaciosas.';
   }
 
   // Padrão: tudo parado = burnout ou bloqueio
-  const zeroStreaks = habits.filter((h: any) => h.streak === 0).length;
-  const todoTasks = tasks.filter((t: any) => t.status === 'todo').length;
+  const zeroStreaks = habits.filter((h) => h.streak === 0).length;
+  const todoTasks = tasks.filter((t) => t.status === 'todo').length;
 
   if (zeroStreaks >= 3 && todoTasks >= 5 && !activeFitness) {
     return 'Padrão de paralisia detectado: hábitos, tarefas e fitness todos estagnados. Pode indicar sobrecarga ou perda de direção.';
