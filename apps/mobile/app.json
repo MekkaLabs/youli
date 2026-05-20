@@ -96,18 +96,7 @@
       ]
     ],
 
-    "extra": {
-      "eas": { "projectId": "youli-app-project-id" }
-    },
-
-    "owner": "youli",
-    "experiments": { "typedRoutes": true },
-
-    "updates": {
-      "enabled": true,
-      "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 0,
-      "url": "https://u.expo.dev/youli-app-project-id"
-    }
+    "experiments": { "typedRoutes": true }
   }
 }
+

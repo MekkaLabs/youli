@@ -23,5 +23,8 @@
     "@types/react-native": "^0.73.0",
     "concurrently": "^9.1.2",
     "typescript": "^5.8.3"
+  },
+  "overrides": {
+    "react-native-worklets": "0.5.2"
   }
 }
