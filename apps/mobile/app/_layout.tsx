@@ -12,6 +12,12 @@ import { AccessibilityProvider } from '../src/accessibility/AccessibilityProvide
 import { ThemeProvider, useTheme } from '../src/providers/ThemeProvider';
 import { useNotifications } from '../src/hooks/useNotifications';
 import { AuthProvider } from '../src/hooks/useAuth';
+import { installAuthInterceptor, loadTokenFromStorage } from '../src/services/auth-token';
+
+// Instala o interceptor global de fetch e hidrata o token ANTES de qualquer
+// render — garante que toda request à API já saia com Authorization: Bearer.
+installAuthInterceptor();
+void loadTokenFromStorage();
 
 /** Shell principal do app — usa hooks dentro da árvore de providers */
 function AppShell() {

@@ -164,12 +164,19 @@ const DEFAULT_GOALS: GoalData[] = [
   },
 ];
 
-function fromApiGoal(g: any): GoalData {
+import { ApiGoalSchema, type ApiGoal } from '../types/api-schemas';
+
+function fromApiGoal(raw: unknown): GoalData {
+  const parsed = ApiGoalSchema.safeParse(raw);
+  const g: ApiGoal = parsed.success
+    ? parsed.data
+    : ({ id: `g_${Date.now()}`, title: 'Meta', progress: 0, status: 'active' } as ApiGoal);
   const target = 100;
-  const progress = Number(g.progress ?? 0);
+  const progress = g.progress ?? 0;
+  const deadline = g.deadline ?? new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0];
   return {
-    id: String(g.id),
-    title: String(g.title ?? 'Meta'),
+    id: g.id,
+    title: g.title || 'Meta',
     emoji: '⚔️',
     color: '#DC2626',
     category: 'pessoal',
@@ -177,14 +184,20 @@ function fromApiGoal(g: any): GoalData {
     targetValue: target,
     unit: '%',
     startDate: new Date().toISOString().split('T')[0],
-    deadline: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
+    deadline,
     milestones: [
       { id: 'm1', title: '25%', targetValue: 25 },
       { id: 'm2', title: '50%', targetValue: 50 },
       { id: 'm3', title: '75%', targetValue: 75 },
       { id: 'm4', title: '100% ✓', targetValue: 100 },
     ],
-    status: 'active',
+    // API: active|paused|achieved|abandoned  → local: active|paused|completed|at_risk
+    status: ((): GoalStatus => {
+      if (g.status === 'achieved') return 'completed';
+      if (g.status === 'abandoned') return 'paused';
+      if (g.status === 'paused') return 'paused';
+      return 'active';
+    })(),
     weeklyUpdates: [{ date: new Date().toISOString().split('T')[0], value: progress }],
   };
 }

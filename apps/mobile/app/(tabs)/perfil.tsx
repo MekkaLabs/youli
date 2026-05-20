@@ -61,7 +61,7 @@ export default function PerfilScreen() {
       const res = await fetch(`${API_BASE}/api/copilot/weekly-pipeline`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ userId: profile.name || 'default', context: {} }),
+        body: JSON.stringify({ userId: user?.id ?? 'default', context: {} }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -177,21 +177,28 @@ export default function PerfilScreen() {
   const habits = useHabits();
   const goals = useGoals();
   const { getAreaGap, lifeHealthScore } = useSWECI();
-  const { isAdmin, logout } = useAuthContext();
+  const { isAdmin, logout, user } = useAuthContext();
 
-  const habitsArr = (habits as any).habits ?? [];
-  const goalsArr = (goals as any).goals ?? [];
-  const activeGoals = goalsArr.filter((g: any) => g.status === 'active');
-  const maxStreak = habitsArr.reduce((max: number, h: any) => Math.max(max, h.streak ?? 0), 0);
-  const completedGoals = goalsArr.filter((g: any) => g.status === 'completed').length;
+  type HabitItem = (typeof habits)['habits'][number] & { completedToday?: boolean };
+  type GoalItem = (typeof goals)['goals'][number];
+
+  const habitsArr: HabitItem[] = (habits.habits ?? []) as HabitItem[];
+  const goalsArr: GoalItem[] = goals.goals ?? [];
+  const activeGoals = goalsArr.filter((g) => g.status === 'active');
+  const maxStreak = habitsArr.reduce((max, h) => Math.max(max, h.streak ?? 0), 0);
+  const completedGoals = goalsArr.filter((g) => g.status === 'completed').length;
   const unlockedAch = achievements.filter(a => a.unlocked).length;
+
+  // progresso de uma meta = currentValue / targetValue (0-100)
+  const goalProgress = (g: GoalItem) =>
+    Math.round(((g.currentValue ?? 0) / (g.targetValue || 1)) * 100);
 
   // Áreas de vida calculadas a partir dos dados reais
   const habitScore = habitsArr.length > 0
-    ? Math.round((habitsArr.filter((h: any) => h.completedToday).length / habitsArr.length) * 100)
+    ? Math.round((habitsArr.filter((h) => h.completedToday).length / habitsArr.length) * 100)
     : 50;
   const goalScore = activeGoals.length > 0
-    ? Math.round(activeGoals.reduce((s: number, g: any) => s + (g.progress ?? 0), 0) / activeGoals.length)
+    ? Math.round(activeGoals.reduce((s, g) => s + goalProgress(g), 0) / activeGoals.length)
     : 50;
 
   // Scores derivados do SWE-CI: gap → score inverso (sem gap = 80+, com gap crítico = 40)
@@ -243,6 +250,28 @@ export default function PerfilScreen() {
           <Text style={styles.avatarLevel}>Nível {xpData.level} · {unlockedAch} conquistas</Text>
         </View>
       </Animated.View>
+
+      {/* Administração do Sistema — área separada, visível só para admin.
+          Não faz parte das ações pessoais (idioma, tema, etc.) — é função de operador. */}
+      {isAdmin && (
+        <Animated.View entering={FadeInDown.delay(40)}>
+          <TouchableOpacity
+            style={styles.adminCard}
+            onPress={() => router.push('/admin' as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir Administração do Sistema"
+          >
+            <View style={styles.adminIconWrap}>
+              <Text style={styles.adminIcon}>👑</Text>
+            </View>
+            <View style={styles.adminInfo}>
+              <Text style={styles.adminTitle}>Administração do Sistema</Text>
+              <Text style={styles.adminSub}>Gerenciar usuários e permissões</Text>
+            </View>
+            <Text style={styles.adminChevron}>›</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
 
       {/* XP Bar */}
       <Animated.View entering={FadeInDown.delay(60)}>
@@ -341,19 +370,6 @@ export default function PerfilScreen() {
           <Text style={styles.actionLabel}>{isDark ? 'Claro' : 'Escuro'}</Text>
         </TouchableOpacity>
 
-        {/* Painel admin — só aparece para usuários admin */}
-        {isAdmin && (
-          <TouchableOpacity
-            onPress={() => router.push('/admin' as any)}
-            style={[styles.actionBtn, { borderColor: '#7C3AED', borderWidth: 1 }]}
-            accessibilityRole="button"
-            accessibilityLabel="Painel administrativo"
-          >
-            <Text style={styles.actionIcon}>👑</Text>
-            <Text style={[styles.actionLabel, { color: '#C4B5FD' }]}>Admin</Text>
-          </TouchableOpacity>
-        )}
-
         {/* Logout */}
         <TouchableOpacity
           onPress={async () => { await logout(); router.replace('/login' as any); }}
@@ -425,7 +441,7 @@ export default function PerfilScreen() {
             </View>
             <View style={styles.settingRow}>
               <Text style={styles.settingLabel}>Stack</Text>
-              <Text style={styles.settingValue}>Expo 53 + Claude API</Text>
+              <Text style={styles.settingValue}>Expo 54 + Claude API</Text>
             </View>
 
             <View style={styles.settingsDivider} />
@@ -567,6 +583,20 @@ export default function PerfilScreen() {
 }
 
 const styles = StyleSheet.create({
+  adminCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: '#1A0A3A', borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: '#7C3AED',
+  },
+  adminIconWrap: {
+    width: 44, height: 44, borderRadius: 12, backgroundColor: '#3B0764',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  adminIcon: { fontSize: 22 },
+  adminInfo: { flex: 1, gap: 2 },
+  adminTitle: { fontSize: 15, fontWeight: '800', color: '#EDE9FE' },
+  adminSub: { fontSize: 12, color: '#A78BFA', fontWeight: '600' },
+  adminChevron: { fontSize: 28, color: '#7C3AED', fontWeight: '300' },
   avatarCard: { flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: '#111827', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#1F2937' },
   avatarCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center' },
   avatarEmoji: { fontSize: 28, fontWeight: '900', color: '#fff' },

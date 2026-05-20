@@ -93,6 +93,14 @@ export default function AdminPanel() {
   const handleSave = useCallback(async () => {
     if (!formName.trim() || !formEmail.trim()) { setFormError('Nome e email são obrigatórios.'); return; }
     if (!editingUser && !formPassword.trim()) { setFormError('Senha é obrigatória para novo usuário.'); return; }
+    if (formPassword.trim() && formPassword.trim().length < 6) {
+      setFormError('Senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formEmail.trim())) {
+      setFormError('Email inválido.');
+      return;
+    }
 
     setFormLoading(true);
     setFormError('');

@@ -132,20 +132,31 @@ export function useCalendar() {
       const { status } = await Calendar.requestCalendarPermissionsAsync();
       if (status !== 'granted') return [];
 
-      const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-      const ids = calendars.map((c: any) => c.id);
+      const calendars = (await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT)) as Array<{ id: string }>;
+      const ids = calendars.map((c) => c.id);
 
       const start = new Date(today + 'T00:00:00');
       const end = new Date(today + 'T23:59:59');
 
-      const rawEvents = await Calendar.getEventsAsync(ids, start, end);
-      return rawEvents.map((e: any) => ({
+      type NativeEvent = {
+        id: string;
+        title?: string;
+        startDate: string | Date;
+        endDate: string | Date;
+        color?: string;
+        location?: string;
+        allDay?: boolean;
+        availability?: string;
+      };
+      const rawEvents = (await Calendar.getEventsAsync(ids, start, end)) as unknown as NativeEvent[];
+      const isoize = (d: string | Date) => (typeof d === 'string' ? d : d.toISOString());
+      return rawEvents.map((e) => ({
         id: e.id,
         title: e.title || 'Sem título',
-        startTime: fmtTime(e.startDate),
-        endTime: fmtTime(e.endDate),
-        startIso: e.startDate,
-        endIso: e.endDate,
+        startTime: fmtTime(isoize(e.startDate)),
+        endTime: fmtTime(isoize(e.endDate)),
+        startIso: isoize(e.startDate),
+        endIso: isoize(e.endDate),
         color: e.color ?? '#7C3AED',
         source: 'native' as const,
         location: e.location,
@@ -166,12 +177,19 @@ export function useCalendar() {
       }).catch(() => null);
 
       if (res?.ok) {
-        const data = await res.json();
+        const data = (await res.json()) as {
+          events?: Array<Partial<CalendarEvent> & {
+            startIso?: string;
+            endIso?: string;
+            start?: string;
+            end?: string;
+          }>;
+        };
         if (data?.events?.length) {
-          const mapped: CalendarEvent[] = data.events.map((e: any) => ({
-            ...e,
-            startTime: e.startTime ?? fmtTime(e.startIso ?? e.start),
-            endTime: e.endTime ?? fmtTime(e.endIso ?? e.end),
+          const mapped: CalendarEvent[] = data.events.map((e) => ({
+            ...(e as CalendarEvent),
+            startTime: e.startTime ?? fmtTime(e.startIso ?? e.start ?? ''),
+            endTime: e.endTime ?? fmtTime(e.endIso ?? e.end ?? ''),
             source: 'google' as const,
             isBusy: true,
             isAllDay: e.isAllDay ?? false,

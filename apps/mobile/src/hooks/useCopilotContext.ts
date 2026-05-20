@@ -37,22 +37,34 @@ export function useCopilotContext(): CopilotUserContext {
   const { xpData } = useXP();
 
   return useMemo(() => {
-    const habitsArr = (habits as any).habits ?? [];
-    const goalsArr = (goals as any).goals ?? [];
-    const healthData = (health as any).data;
+    type HabitItem = (typeof habits)['habits'][number] & { completedToday?: boolean };
+    type GoalItem = (typeof goals)['goals'][number];
 
-    const topStreak = habitsArr.reduce(
-      (max: any, h: any) => (!max || h.streak > max.streak ? h : max), null
+    const habitsArr: HabitItem[] = (habits.habits ?? []) as HabitItem[];
+    const goalsArr: GoalItem[] = goals.goals ?? [];
+    const financeAny = finance as {
+      totalBalance?: number;
+      thisMonth?: { expenses?: number; savings?: number };
+    };
+    const healthSummary = (health as { summary?: { steps?: number; sleepHours?: number; activeCalories?: number } }).summary;
+
+    const topStreak = habitsArr.reduce<HabitItem | null>(
+      (max, h) => (!max || h.streak > max.streak ? h : max),
+      null,
     );
-    const activeGoals = goalsArr.filter((g: any) => g.status === 'active');
-    const nearestGoal = activeGoals.sort((a: any, b: any) => {
+    const activeGoals = goalsArr.filter((g) => g.status === 'active');
+    const nearestGoal: GoalItem | null = [...activeGoals].sort((a, b) => {
       const dA = a.deadline ? new Date(a.deadline).getTime() - Date.now() : Infinity;
       const dB = b.deadline ? new Date(b.deadline).getTime() - Date.now() : Infinity;
       return dA - dB;
     })[0] ?? null;
 
     const hour = new Date().getHours();
-    const timeOfDay = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+    const timeOfDay: 'morning' | 'afternoon' | 'evening' =
+      hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+
+    const goalProgress = (g: GoalItem) =>
+      Math.round(((g.currentValue ?? 0) / (g.targetValue || 1)) * 100);
 
     return {
       user: {
@@ -63,44 +75,47 @@ export function useCopilotContext(): CopilotUserContext {
       },
       habits: {
         total: habitsArr.length,
-        completedToday: habitsArr.filter((h: any) => h.completedToday).length,
+        completedToday: habitsArr.filter((h) => h.completedToday).length,
         topStreak: topStreak ? { title: topStreak.title, streak: topStreak.streak } : null,
         avgStreak: habitsArr.length
-          ? Math.round(habitsArr.reduce((s: number, h: any) => s + (h.streak ?? 0), 0) / habitsArr.length)
+          ? Math.round(habitsArr.reduce((s, h) => s + (h.streak ?? 0), 0) / habitsArr.length)
           : 0,
       },
       goals: {
         total: goalsArr.length,
         active: activeGoals.length,
         avgProgress: activeGoals.length
-          ? Math.round(activeGoals.reduce((s: number, g: any) => s + (g.progress ?? 0), 0) / activeGoals.length)
+          ? Math.round(activeGoals.reduce((s, g) => s + goalProgress(g), 0) / activeGoals.length)
           : 0,
-        nearest: nearestGoal ? {
-          title: nearestGoal.title,
-          progress: nearestGoal.progress ?? 0,
-          daysLeft: nearestGoal.deadline
-            ? Math.ceil((new Date(nearestGoal.deadline).getTime() - Date.now()) / 86400000)
-            : 999,
-        } : null,
+        nearest: nearestGoal
+          ? {
+              title: nearestGoal.title,
+              progress: goalProgress(nearestGoal),
+              daysLeft: nearestGoal.deadline
+                ? Math.ceil((new Date(nearestGoal.deadline).getTime() - Date.now()) / 86400000)
+                : 999,
+            }
+          : null,
       },
       tasks: {
         todo: counts.todo,
         doing: counts.doing,
         done: counts.done,
-        todayCount: tasks.filter(t => {
-          if (!t.dueDate) return t.status === 'doing';
-          return new Date(t.dueDate).toDateString() === new Date().toDateString();
+        todayCount: tasks.filter((t) => {
+          const due = (t as { dueDate?: string; dueAt?: string }).dueDate ?? (t as { dueAt?: string }).dueAt;
+          if (!due) return t.status === 'doing';
+          return new Date(due).toDateString() === new Date().toDateString();
         }).length,
       },
       finance: {
-        balance: (finance as any).totalBalance ?? 0,
-        monthlyExpenses: (finance as any).thisMonth?.expenses ?? 0,
-        savings: (finance as any).thisMonth?.savings ?? 0,
+        balance: financeAny.totalBalance ?? 0,
+        monthlyExpenses: financeAny.thisMonth?.expenses ?? 0,
+        savings: financeAny.thisMonth?.savings ?? 0,
       },
       health: {
-        steps: healthData?.steps ?? 0,
-        sleepHours: healthData?.sleepHours ?? 0,
-        activeCalories: healthData?.activeCalories ?? 0,
+        steps: healthSummary?.steps ?? 0,
+        sleepHours: healthSummary?.sleepHours ?? 0,
+        activeCalories: healthSummary?.activeCalories ?? 0,
       },
       lifeBalance: patterns.lifeBalance ?? 70,
       positivePatterns: patterns.positiveCount ?? 0,

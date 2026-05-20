@@ -47,15 +47,19 @@ function toApiPriority(priority: TaskPriority): number {
   return { low: 2, medium: 3, high: 4, critical: 5 }[priority];
 }
 
-function fromApiTask(t: any): LocalTask {
+import { ApiTaskSchema, type ApiTask } from '../types/api-schemas';
+
+function fromApiTask(raw: unknown): LocalTask {
+  const parsed = ApiTaskSchema.safeParse(raw);
+  const t: ApiTask = parsed.success ? parsed.data : ({ id: generateId(), title: 'Nova tarefa' } as ApiTask);
   const priority = normalizePriority(t.priority);
   return {
-    id: String(t.id ?? generateId()),
-    title: String(t.title ?? 'Nova tarefa'),
+    id: t.id || generateId(),
+    title: t.title || 'Nova tarefa',
     description: t.nextStep ?? t.description ?? undefined,
     status: (t.status === 'doing' || t.status === 'done' ? t.status : 'todo') as TaskStatus,
     priority,
-    createdAt: new Date().toISOString(),
+    createdAt: t.createdAt ?? new Date().toISOString(),
     xpReward: xpForPriority(priority),
     completedAt: t.status === 'done' ? new Date().toISOString() : undefined,
   };

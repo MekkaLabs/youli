@@ -144,20 +144,22 @@ export function useSmartNotifications() {
       });
 
       if (!res.ok) return;
-      const { notifications: newNotifs } = await res.json();
+      type IncomingNotif = Partial<SmartNotification> & { type?: string; id?: string };
+      const payload = (await res.json()) as { notifications?: IncomingNotif[] };
+      const newNotifs = payload.notifications;
 
       if (!newNotifs?.length) return;
 
       // Atualizar lastNotifications
       const updatedLast = { ...lastNotifications };
-      newNotifs.forEach((n: any) => {
-        updatedLast[n.type] = new Date().toISOString();
+      newNotifs.forEach((n) => {
+        if (n.type) updatedLast[n.type] = new Date().toISOString();
       });
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedLast));
 
       // Adicionar ao histórico
-      const newHistory: SmartNotification[] = newNotifs.map((n: any) => ({
-        ...n,
+      const newHistory: SmartNotification[] = newNotifs.map((n) => ({
+        ...(n as SmartNotification),
         receivedAt: new Date().toISOString(),
         read: false,
       }));

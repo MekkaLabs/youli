@@ -28,16 +28,24 @@ export interface AIInsight {
   trend?: 'up' | 'down' | 'stable';
 }
 
+type HabitsHook = ReturnType<typeof useHabits>;
+type GoalsHook = ReturnType<typeof useGoals>;
+type HabitItem = HabitsHook['habits'][number];
+type GoalItem = GoalsHook['goals'][number];
+
 function buildFallbackInsights(
-  habits: ReturnType<typeof useHabits>,
-  goals: ReturnType<typeof useGoals>,
+  habits: HabitsHook,
+  goals: GoalsHook,
   patterns: ReturnType<typeof useLifePatterns>,
 ): AIInsight[] {
   const insights: AIInsight[] = [];
 
   // Habit streak insight
-  const habitsArr = (habits as any).habits ?? [];
-  const topStreak = habitsArr.reduce((max: any, h: any) => (!max || h.streak > max.streak ? h : max), null);
+  const habitsArr: HabitItem[] = habits.habits ?? [];
+  const topStreak = habitsArr.reduce<HabitItem | null>(
+    (max, h) => (!max || h.streak > max.streak ? h : max),
+    null,
+  );
   if (topStreak && topStreak.streak >= 3) {
     insights.push({
       id: 'streak-top',
@@ -52,10 +60,12 @@ function buildFallbackInsights(
   }
 
   // Goal progress insight
-  const goalsArr = (goals as any).goals ?? [];
-  const activeGoals = goalsArr.filter((g: any) => g.status === 'active');
+  const goalsArr: GoalItem[] = goals.goals ?? [];
+  const activeGoals = goalsArr.filter((g) => g.status === 'active');
   if (activeGoals.length > 0) {
-    const avgProgress = activeGoals.reduce((s: number, g: any) => s + (g.progress ?? 0), 0) / activeGoals.length;
+    const avgProgress =
+      activeGoals.reduce((s, g) => s + ((g.currentValue ?? 0) / (g.targetValue || 1)) * 100, 0) /
+      activeGoals.length;
     insights.push({
       id: 'goals-avg',
       title: avgProgress >= 60 ? 'Metas no caminho certo' : 'Metas precisam de atenção',
@@ -118,25 +128,35 @@ export function useInsights() {
       }
 
       // Build context for API
-      const habitsArr = (habits as any).habits ?? [];
-      const goalsArr = (goals as any).goals ?? [];
+      const habitsArr: HabitItem[] = habits.habits ?? [];
+      const goalsArr: GoalItem[] = goals.goals ?? [];
+      const habitWithCompletedToday = habitsArr as Array<HabitItem & { completedToday?: boolean }>;
+      const financeAny = finance as { totalBalance?: number; monthlyExpenses?: number };
       const context = {
         habits: {
           total: habitsArr.length,
-          activeStreaks: habitsArr.filter((h: any) => h.streak > 0).length,
-          topStreak: habitsArr.reduce((max: any, h: any) => (!max || h.streak > max.streak ? h : max), null),
-          completedToday: habitsArr.filter((h: any) => h.completedToday).length,
+          activeStreaks: habitsArr.filter((h) => h.streak > 0).length,
+          topStreak: habitsArr.reduce<HabitItem | null>(
+            (max, h) => (!max || h.streak > max.streak ? h : max),
+            null,
+          ),
+          completedToday: habitWithCompletedToday.filter((h) => h.completedToday).length,
         },
         goals: {
           total: goalsArr.length,
-          active: goalsArr.filter((g: any) => g.status === 'active').length,
+          active: goalsArr.filter((g) => g.status === 'active').length,
           avgProgress: goalsArr.length > 0
-            ? Math.round(goalsArr.reduce((s: number, g: any) => s + (g.progress ?? 0), 0) / goalsArr.length)
+            ? Math.round(
+                goalsArr.reduce(
+                  (s, g) => s + ((g.currentValue ?? 0) / (g.targetValue || 1)) * 100,
+                  0,
+                ) / goalsArr.length,
+              )
             : 0,
         },
         finance: {
-          totalBalance: (finance as any).totalBalance ?? 0,
-          monthlyExpenses: (finance as any).monthlyExpenses ?? 0,
+          totalBalance: financeAny.totalBalance ?? 0,
+          monthlyExpenses: financeAny.monthlyExpenses ?? 0,
         },
         lifeBalance: patterns.lifeBalance,
         positivePatterns: patterns.positiveCount,

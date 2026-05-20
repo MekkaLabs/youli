@@ -151,17 +151,24 @@ function generateDemoCompletions(streakDays: number): string[] {
   return dates;
 }
 
-function fromApiHabit(h: any): HabitData {
+import { ApiHabitSchema, type ApiHabit } from '../types/api-schemas';
+
+function fromApiHabit(raw: unknown): HabitData {
+  const parsed = ApiHabitSchema.safeParse(raw);
+  const h: ApiHabit = parsed.success
+    ? parsed.data
+    : ({ id: `h_${Date.now()}`, title: 'Hábito', streak: 0 } as ApiHabit);
   const palette = ['#059669', '#7C3AED', '#D97706', '#DC2626', '#0891B2'];
+  const idDigest = h.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
   return {
-    id: String(h.id),
-    title: String(h.title || 'Hábito'),
+    id: h.id,
+    title: h.title || 'Hábito',
     emoji: '🏛️',
-    color: palette[Math.abs(String(h.id).split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % palette.length],
+    color: palette[Math.abs(idDigest) % palette.length],
     frequency: h.frequency === 'weekly' ? 'weekly' : 'daily',
     category: 'Mente',
-    streak: Number(h.streak ?? 0),
-    bestStreak: Number(h.streak ?? 0),
+    streak: h.streak ?? 0,
+    bestStreak: h.streak ?? 0,
     completedDates: [],
     createdAt: new Date().toISOString(),
   };

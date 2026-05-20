@@ -73,12 +73,13 @@ export function useNotifications(language = 'pt-BR') {
 // ─── Internal: check gaps and alert ──────────────────────────────────────────
 
 async function checkAndAlertGaps(language: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/copilot/life-health?userId=default`).catch(() => null);
+  const res = await fetch(`${API_BASE}/api/copilot/life-health`).catch(() => null);
   if (!res?.ok) return;
-  const data = await res.json().catch(() => null);
+  type LifeHealthGap = { area: string; metric: string; gapMagnitude: number; priority: string; requirement: string };
+  const data = (await res.json().catch(() => null)) as { topGaps?: LifeHealthGap[] } | null;
   if (!data?.topGaps?.length) return;
 
-  const critical = data.topGaps.find((g: any) => g.gapMagnitude >= 30);
+  const critical = data.topGaps.find((g) => g.gapMagnitude >= 30);
   if (!critical) return;
 
   await sendGapAlert({

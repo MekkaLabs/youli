@@ -4,6 +4,7 @@
  */
 import { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { setAuthToken, clearAuthToken } from '../services/auth-token';
 
 const SESSION_KEY = '@youli:session';
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3002';
@@ -58,6 +59,7 @@ export function useAuth(): AuthHook {
           const parsed = JSON.parse(stored) as { user: AuthUser; token: string };
           setUser(parsed.user);
           setToken(parsed.token);
+          setAuthToken(parsed.token); // hidrata o interceptor global
         }
       } catch {
         // sessão corrompida — limpa
@@ -71,12 +73,14 @@ export function useAuth(): AuthHook {
   const saveSession = useCallback(async (u: AuthUser, t: string) => {
     setUser(u);
     setToken(t);
+    setAuthToken(t); // atualiza o interceptor global de fetch
     await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({ user: u, token: t }));
   }, []);
 
   const clearSession = useCallback(async () => {
     setUser(null);
     setToken(null);
+    clearAuthToken(); // remove do interceptor global
     await AsyncStorage.removeItem(SESSION_KEY);
   }, []);
 
