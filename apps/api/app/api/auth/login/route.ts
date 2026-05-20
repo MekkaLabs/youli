@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { validateCredentials, getSessionCookieName } from '../../../../src/services/auth';
+import { validateCredentials, getSessionCookieName, signSession, getSessionTtlSeconds } from '../../../../src/services/auth';
 
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as { email?: string; password?: string };
@@ -11,13 +11,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 });
   }
 
-  const res = NextResponse.json({ ok: true, user });
-  res.cookies.set(getSessionCookieName(), `${user.id}:${user.role}`, {
+  const token = signSession(user);
+  // Retorna o token no body para clientes sem cookie-jar confiável (mobile).
+  const res = NextResponse.json({ ok: true, user, token });
+  res.cookies.set(getSessionCookieName(), token, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
     path: '/',
-    maxAge: 60 * 60 * 24 * 30 // 30 dias
+    maxAge: getSessionTtlSeconds(),
   });
 
   return res;

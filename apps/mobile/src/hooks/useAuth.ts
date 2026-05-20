@@ -108,7 +108,7 @@ export function useAuth(): AuthHook {
         role: data.user.role,
         avatar: data.user.avatar,
       };
-      const sessionToken = `${authUser.id}:${authUser.role}`;
+      const sessionToken: string = data.token ?? '';
       await saveSession(authUser, sessionToken);
       return true;
     } catch {
@@ -143,7 +143,7 @@ export function useAuth(): AuthHook {
         role: data.user.role,
         avatar: data.user.avatar,
       };
-      const sessionToken = `${authUser.id}:${authUser.role}`;
+      const sessionToken: string = data.token ?? '';
       await saveSession(authUser, sessionToken);
       return true;
     } catch {

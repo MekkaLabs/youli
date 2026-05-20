@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createUser, getSessionCookieName } from '../../../../src/services/auth';
+import { createUser, getSessionCookieName, signSession, getSessionTtlSeconds } from '../../../../src/services/auth';
 
 // POST /api/auth/register — cria conta pública (role=user sempre)
 export async function POST(req: Request) {
@@ -23,13 +23,14 @@ export async function POST(req: Request) {
   const result = await createUser({ name, email, password, role: 'user' });
   if ('error' in result) return NextResponse.json(result, { status: 400 });
 
-  const res = NextResponse.json({ ok: true, user: result }, { status: 201 });
-  res.cookies.set(getSessionCookieName(), `${result.id}:${result.role}`, {
+  const token = signSession(result);
+  const res = NextResponse.json({ ok: true, user: result, token }, { status: 201 });
+  res.cookies.set(getSessionCookieName(), token, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
     path: '/',
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: getSessionTtlSeconds(),
   });
   return res;
 }

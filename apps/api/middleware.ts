@@ -46,9 +46,11 @@ function isPublic(pathname: string): boolean {
 
 function isValidTokenFormat(token: string | undefined): boolean {
   if (!token) return false;
-  // Formato esperado pelo auth.ts: `<userId>:<...>`
-  const [userId] = token.split(':');
-  return Boolean(userId && userId.length > 0);
+  // Token assinado do auth.ts: `<payloadB64>.<sig>` (2 partes não vazias).
+  // O middleware roda no Edge e NÃO valida a assinatura — apenas o formato.
+  // A verificação HMAC real acontece em requireAuth() (runtime Node).
+  const parts = token.split('.');
+  return parts.length === 2 && Boolean(parts[0]) && Boolean(parts[1]);
 }
 
 function unauthorizedApi() {
