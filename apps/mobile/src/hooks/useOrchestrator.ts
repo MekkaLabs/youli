@@ -6,6 +6,7 @@
 
 import { useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { logWarn } from '../services/logger';
 
 const STORAGE_KEY_ORCH = '@youli:orchestrator';
 
@@ -63,7 +64,7 @@ export function useOrchestrator(userContext?: object) {
         const parsed = JSON.parse(stored);
         setOrchestratorConfig(parsed);
       }
-    } catch {}
+    } catch (e) { logWarn('useOrchestrator:loadConfig', e); }
   }, []);
 
   // Salva nova config do orquestrador
@@ -79,7 +80,7 @@ export function useOrchestrator(userContext?: object) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(config),
         });
-      } catch {}
+      } catch (e) { logWarn('useOrchestrator:updateConfig', e); }
     },
     []
   );
@@ -196,7 +197,7 @@ export function useOrchestrator(userContext?: object) {
       };
 
       setMessages((prev) => [...prev, briefingMsg]);
-    } catch {}
+    } catch (e) { logWarn('useOrchestrator:briefing', e); }
     finally {
       setLoading(false);
     }

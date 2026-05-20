@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { logWarn } from '../services/logger';
 
 const STORAGE_KEY = '@youli:daily_digest';
 
@@ -31,7 +32,7 @@ export function useDailyDigest() {
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
       if (raw) {
-        try { setConfig(JSON.parse(raw)); } catch {}
+        try { setConfig(JSON.parse(raw)); } catch (e) { logWarn('useDailyDigest:parseConfig', e); }
       }
     });
     checkNotifPermission();
@@ -115,7 +116,7 @@ export function useDailyDigest() {
         .filter(n => n.content.data?.type === 'youli_digest')
         .map(n => n.identifier);
       await Promise.all(youliIds.map(id => Notifications.cancelScheduledNotificationAsync(id)));
-    } catch {}
+    } catch (e) { logWarn('useDailyDigest:cancelDigest', e); }
     await saveConfig({ ...config, enabled: false });
   }, [config, saveConfig]);
 
