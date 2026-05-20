@@ -51,3 +51,7 @@ Thumbs.db
 # Supabase
 supabase/.branches/
 supabase/.temp/
+
+# Dados gerados em runtime (estado por usuário)
+apps/api/src/repositories/.data/anc-baseline-*.json
+apps/api/src/repositories/.data/*-snapshot-*.json
