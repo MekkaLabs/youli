@@ -181,6 +181,40 @@ da seção 4 já não reproduzem neste estado da worktree.
 ### Débito ainda em aberto (não tocado nesta sessão)
 
 - `any` legítimos de native-modules em `useHealth.ts` (HealthKit) — mantidos de propósito.
-- Camada de dados ainda single-profile (`YOULI_PROFILE_ID` global em vez de `auth.user.id`) — item maior, fora do escopo desta sessão.
 - Prune do Obsidian remove o `MemoryRecord` no connector, mas **não** remove do índice semântico (Zep/pgvector) — o engine não expõe delete aqui. Avaliar quando houver `engine.remove`.
 - Funcionalidades mock (Pluggy/Belvo, Whisper) — inalteradas.
+
+---
+
+## 9. Sessão 3 — Multi-usuário + Auth séria + Dashboards web (2026-05-20)
+
+Atacados os dois **P0** do PREMORTEM + dashboards web. **Typecheck 0 erros (api+mobile).**
+
+| Fase | Entrega | Commit |
+|------|---------|--------|
+| F1 | **Auth assinada (HMAC) + senhas com hash (scrypt)**; login/register retornam token assinado; mobile usa `data.token`; role vem sempre do servidor | `7ca0466` |
+| F2 | **Persistência multi-usuário** — `local-db` por `userId` (`.data/users/{id}.json`); owner migra `db.json` legado; novos usuários = slate limpo; `userId` threadado em repos/serviços/~20 rotas | `ba50132` |
+| F3 | **Agentes personalizados** — `/api/copilot/orchestrate` gateado + injeta perfil autoritativo do usuário logado | `105286a` |
+| F4 | **Painel Admin web** (`/admin`, admin-only: CRUD + papel) + nav por papel no `/system` | `8e06c76` |
+
+### Decisões/arquitetura novas (NÃO reverter sem entender)
+
+1. **Token de sessão assinado** (`apps/api/src/services/auth.ts` → `signSession`/`verifySession`, HMAC-SHA256 + exp 30d). Segredo: `YOULI_SESSION_SECRET` (obrigatório em prod; fallback dev inseguro com aviso). **A role de autorização vem do store, nunca do token.** Senhas em scrypt (`hashPassword`/`verifyPassword`) com upgrade automático de legado em texto plano no login.
+2. **`local-db` é por-usuário.** `readDb(userId)`/`writeDb(userId, db)` + arquivo próprio. `OWNER_ID` (`user-gusta-001`, override via `YOULI_OWNER_ID`) migra o `db.json` legado uma vez. `seedUserIfMissing(userId, identity)` chamado em login/register.
+3. **Gate `YOULI_USE_SUPABASE`** (`src/db/supabase.ts` → `hasSupabase()`): default **false = JSON local**. Mantém env do Supabase para o futuro sem forçar uso. Para ativar Supabase depois: aplicar migrations + `YOULI_USE_SUPABASE=true`.
+4. **`.data/users/` e `.data/users.json` gitignorados** (estado runtime por usuário).
+
+### Validado por smoke (API rodando)
+
+- Token forjado → 401; senha errada → 401; user em rota admin → 403; admin → 200.
+- Gustavo e Amiga: metas/perfis **isolados** (arquivos `.data/users/*.json` separados); POST 201 em ambos.
+- `/api/copilot/orchestrate` sem token → 401, com token → 200.
+- Admin: create 201 / PATCH role 200 / DELETE 200; `/admin` sem cookie → 307 → `/login`.
+
+### Próximos passos sugeridos (continuação)
+
+1. **Polir o dashboard web do usuário** (`/system/*` e `/` já são gated e por-usuário; falta refino visual/UX).
+2. **Gatear as demais rotas `/api/copilot/*`** com `requireAuth` (só `orchestrate` foi gateado nesta leva).
+3. **Migração Supabase real** (P0-2 para deploy): aplicar migrations, RLS por `user_id`, ligar `YOULI_USE_SUPABASE`. JSON não persiste no Vercel.
+4. **P1 do PREMORTEM:** rate limiting, logging estruturado/Sentry, pipeline de deploy + `eas init`, feature flags.
+5. Trocar a senha default prefilled no `app/login/page.tsx` (`teste123` → vazio/correta).
