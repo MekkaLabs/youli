@@ -26,6 +26,7 @@ export default function SystemLayout({ children }: { children: ReactNode }) {
   const [command, setCommand] = useState('');
   const [status, setStatus] = useState('');
   const [copilotTips, setCopilotTips] = useState<string[]>([]);
+  const [me, setMe] = useState<{ name: string; role: string } | null>(null);
 
   const currentSection = useMemo(() => {
     const seg = pathname?.split('/')[2];
@@ -40,6 +41,10 @@ export default function SystemLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     loadModules().catch(() => setActiveModules(allSections.map((s) => s.key)));
+    fetch('/api/auth/me', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setMe(j?.user ?? j ?? null))
+      .catch(() => setMe(null));
   }, []);
 
   const sections = allSections.filter((s) => (activeModules.length ? activeModules.includes(s.key) : true));
@@ -122,7 +127,16 @@ export default function SystemLayout({ children }: { children: ReactNode }) {
             )}
           </div>
 
-          <button onClick={logout} className="mt-4 block w-full rounded-xl bg-slate-900 px-3 py-2 text-center text-sm font-semibold text-white">Sair</button>
+          {me && (
+            <div className="mt-4 rounded-2xl bg-white p-3 ring-1 ring-slate-200">
+              <p className="text-xs font-semibold text-slate-900">{me.name}</p>
+              <p className="text-[11px] text-slate-500">{me.role === 'admin' ? 'Administrador' : 'Usuário'}</p>
+            </div>
+          )}
+          {me?.role === 'admin' && (
+            <Link href={'/admin' as any} className="mt-2 block rounded-xl bg-rose-700 px-3 py-2 text-center text-sm font-semibold text-white">Painel Admin</Link>
+          )}
+          <button onClick={logout} className="mt-2 block w-full rounded-xl bg-slate-900 px-3 py-2 text-center text-sm font-semibold text-white">Sair</button>
           <Link href={'/' as any} className="mt-2 block rounded-xl border border-slate-300 px-3 py-2 text-center text-sm font-semibold text-slate-700">Cockpit</Link>
         </aside>
         <section>{children}</section>
