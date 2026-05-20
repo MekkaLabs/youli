@@ -1,0 +1,157 @@
+# HANDOFF — Sessão de Qualidade & Segurança (2026-05-20)
+
+> Continuação para o próximo chat. Este documento resume tudo que foi feito,
+> o estado atual, como rodar, e o que ainda falta. **Não apaga** o `HANDOFF.md`
+> original (que descreve a arquitetura base do projeto).
+
+**Branch:** `claude/priceless-cray-231c32`
+**Worktree:** `/Users/gustavovicente/Documents/Youli/.claude/worktrees/priceless-cray-231c32`
+
+---
+
+## 1. Estado atual — TUDO FUNCIONANDO
+
+- ✅ App **abre e roda no Expo Go** (via tunnel — funciona em qualquer rede/4G)
+- ✅ **Typecheck 0 erros** em `apps/api` e `apps/mobile` (exceto 3 erros pré-existentes de `boxShadow`/`StyleSheet` por conflito de versão RN entre raiz e mobile — documentado abaixo)
+- ✅ **Login + auth via Bearer token validado** (smoke test passou)
+- ✅ Integração **Obsidian** funcional (17 notas indexadas)
+- ✅ 8 commits limpos nesta sessão (working tree limpo, só `apps/api/src/repositories/.data/db.json` runtime fica de fora propositalmente)
+
+---
+
+## 2. Como rodar (1 comando)
+
+No terminal do usuário (Terminal.app/iTerm), **não em background**:
+
+```bash
+cd /Users/gustavovicente/Documents/Youli/.claude/worktrees/priceless-cray-231c32 && ./scripts/start-tunnel.sh
+```
+
+Sobe API (3002) + túnel cloudflared da API + Expo `--tunnel`, imprime o QR nativo.
+Escanear com a **Câmera do iPhone** (não pelo Expo Go — iOS recente removeu "Enter URL").
+Login: `gustav0.v1c3nt3@gmail.com` / `youli2024`
+
+> ⚠️ **Importante para o próximo agente:** NÃO rodar `expo start` em background sem TTY
+> (trava com "non-interactive mode"). Use o script no terminal do usuário, OU o
+> truque do PTY em `/tmp/run-expo-tunnel.py` (Python pty.fork). A API (Next dev) e o
+> cloudflared PODEM rodar em background normalmente.
+
+---
+
+## 3. O que foi feito nesta sessão (commits)
+
+| Commit | Conteúdo |
+|--------|----------|
+| `feat(api): segurança` | auth Bearer+cookie, requireAuth em ~22 rotas, admin endurecido, CORS por env, http.ts helpers |
+| `feat(memory): Obsidian fim-a-fim` | source/externalId/tags, upsert, filtro por origem, sync-obsidian, DELETE |
+| `feat(agents): robustez` | retry+timeout+cache LRU+logging no executor, parse Zod, 30 melhorias por agente |
+| `feat(mobile): interceptor auth + Zod + admin` | interceptor global de fetch, hooks tipados, admin separado do perfil |
+| `chore: scripts/configs` | start-dev.sh, start-tunnel.sh, Next 15.5.18 (CVE), worklets 0.5.2 |
+| `feat(memory): MemoryConnector` | upsert/list-filtros + remove .env.local.backup |
+| `refactor(mobile): logger` | logger.ts + catch vazios em hooks de dados |
+
+### Decisões arquiteturais críticas (NÃO reverter sem entender)
+
+1. **Auth dual cookie+Bearer** (`apps/api/src/services/auth.ts` → `resolveSessionToken`):
+   a API aceita `Authorization: Bearer <userId:role>` além do cookie. O mobile manda
+   Bearer via **interceptor global de fetch** (`apps/mobile/src/services/auth-token.ts`),
+   injetado no boot em `apps/mobile/app/_layout.tsx`. **Sem isso o mobile depende do
+   cookie-jar frágil do iOS.**
+
+2. **Symlink `node_modules/expo-router`** → `apps/mobile/node_modules/expo-router`.
+   Necessário porque `babel-preset-expo` (hoisted na raiz) faz `require.resolve('expo-router')`
+   sem `paths`. **O symlink some em `npm install` limpo** — o `scripts/start-tunnel.sh`
+   o recria automaticamente (função `ensure_hoist`).
+
+3. **`overrides: { "react-native-worklets": "0.5.2" }`** no `package.json` raiz —
+   reanimated 4.1.7 exige 0.5.2; sem o override volta o mismatch de versão (crash no boot).
+
+4. **`apps/mobile/app.json` sem EAS placeholders** — removidos `owner`, `extra.eas.projectId`,
+   `updates.url` falsos (causavam HTTP 500 no manifest do Expo Go). Backup em
+   `app.json.before-dev-fix`. Ao fazer build de produção real: rodar `eas init`.
+
+---
+
+## 4. Débito técnico restante (priorizado para a próxima sessão)
+
+### 🟡 Médio
+- **`any` em serviços internos da API** — `apps/api/src/services/signals/agent-signal-bus.ts`
+  (~25 ocorrências), `apps/api/src/services/graph/life-graph.ts` (~5),
+  `apps/api/src/repositories/supabase/habits.ts:46`. São código interno (não input de usuário).
+  Tipar definindo interfaces `LifeContext` e payloads discriminados de signal.
+- **`any` em componentes mobile** — `DashboardHero/index.tsx` (~10), `DailyDigest/index.tsx` (~4),
+  `useHealth.ts` (~4, mas os de native-modules são legítimos), `ShareCard`, `GlobalSearch`,
+  `WeeklyReview`, `TodayFocusCard`. Tipar via `ReturnType` dos hooks (padrão já usado em
+  `useInsights.ts`/`useCopilotContext.ts`/`perfil.tsx`).
+
+### 🟢 Baixo
+- **`catch {}` vazios restantes** em telas (`app/(tabs)/dashboard|habitos|tarefas|metas|fitness.tsx`,
+  `app/life-score.tsx`, `app/sweci-settings.tsx`, `app/integrations.tsx`,
+  `src/organisms/CrossAreaInsights`, `src/accessibility/AccessibilityProvider.tsx`).
+  Já existe `apps/mobile/src/services/logger.ts` (`logWarn`) — só importar e usar.
+  Padrão: `} catch (e) { logWarn('escopo:contexto', e); }`. São best-effort (já têm `if(res.ok)`),
+  baixo risco — por isso ficaram para depois.
+- **3 erros de typecheck pré-existentes** (`EmptyState`, `MetricCard`, `CopilotBubble` —
+  `boxShadow`/`StyleSheet`). Causa: `react-native` duplicado entre raiz e `apps/mobile`.
+  Resolver hoisting via `pnpm` ou `overrides` mais amplo. Não bloqueia o app.
+- **Camada de dados ainda single-profile** — as rotas protegidas com `requireAuth()` validam
+  login mas usam `YOULI_PROFILE_ID` global (não `auth.user.id`) na persistência. Para multi-usuário
+  real, reescrever `repositories/*` para filtrar por `userId`. Fora do escopo "revisar bugs".
+
+### 🔵 Funcionalidades mock a implementar (quando quiser sair do MVP)
+- Pluggy/Belvo open-finance reais (`packages/integrations/src/index.ts` — hoje status `pending`/mock)
+- Voice transcribe (`molecules/VoiceInput` — TODO Whisper)
+- Cleanup de memória Obsidian deletada (sync só faz upsert, não remove)
+
+---
+
+## 5. Comandos úteis
+
+```bash
+# Subir tudo (terminal do usuário)
+./scripts/start-tunnel.sh
+
+# Subir só local (sem tunnel)
+./scripts/start-dev.sh
+
+# Typecheck
+cd apps/api && npx tsc --noEmit
+cd apps/mobile && npx tsc --noEmit
+
+# Sync Obsidian (precisa cookie ou Bearer)
+node scripts/sync-obsidian.mjs --dry-run
+node scripts/sync-obsidian.mjs
+
+# Smoke test auth (com API rodando em 3002)
+curl -s -X POST localhost:3002/api/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"gustav0.v1c3nt3@gmail.com","password":"youli2024"}'
+curl -s -H 'Authorization: Bearer user-gusta-001:admin' localhost:3002/api/tasks
+```
+
+---
+
+## 6. Arquivos-chave criados nesta sessão
+
+```
+apps/api/src/lib/http.ts                       — helpers requireAuth/requireAdmin/jsonError/parseJsonBody
+apps/api/app/api/memory/sync-obsidian/route.ts — batch sync Obsidian
+apps/api/app/api/memory/[id]/route.ts          — DELETE memória
+apps/mobile/src/services/auth-token.ts         — interceptor global de fetch (Bearer)
+apps/mobile/src/services/logger.ts             — logWarn/logError
+apps/mobile/src/types/api-schemas.ts           — schemas Zod das respostas da API
+scripts/sync-obsidian.mjs                      — CLI de sync
+scripts/start-tunnel.sh                         — sobe tudo via tunnel + QR
+scripts/start-dev.sh                            — sobe local + detecta IP LAN
+```
+
+---
+
+## 7. Próximos passos sugeridos (ordem de valor)
+
+1. **Tipar os `any` da API** (agent-signal-bus, life-graph) — maior risco de bug silencioso.
+2. **Tipar `any` em DashboardHero/DailyDigest** — telas que renderizam dados.
+3. **Limpar os `catch {}` restantes** com `logWarn` (rápido, mecânico).
+4. **Resolver os 3 erros de boxShadow** (hoisting RN) — limpa o typecheck 100%.
+5. **(Maior)** Migrar persistência para multi-usuário real (`auth.user.id` nos repositories).
+
+Bom trabalho para o próximo! Tudo commitado, app rodando, fundação de segurança sólida.
