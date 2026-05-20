@@ -63,7 +63,17 @@ const NoteSchema = z.object({
 
 const SyncSchema = z.object({
   vault: z.string().optional(),
-  notes: z.array(NoteSchema).min(1).max(200),
+  notes: z.array(NoteSchema).max(200).default([]),
+  /**
+   * Quando presente, remove memórias de origem 'obsidian' do usuário cujo
+   * externalId NÃO esteja em knownExternalIds (notas deletadas no vault).
+   * Opt-in: o script só envia com a flag --prune e a lista COMPLETA do vault.
+   */
+  prune: z
+    .object({
+      knownExternalIds: z.array(z.string().min(1).max(512)).max(10_000),
+    })
+    .optional(),
 });
 
 interface NoteResult {
@@ -78,7 +88,7 @@ export async function POST(req: NextRequest) {
 
   const parsed = await parseJsonBody(req, SyncSchema);
   if (!parsed.ok) return parsed.response;
-  const { vault, notes } = parsed.data;
+  const { vault, notes, prune } = parsed.data;
 
   const connector = getMemoryConnector();
   const results: NoteResult[] = [];
@@ -133,6 +143,23 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Prune: remove notas deletadas no vault (opt-in, lista completa enviada pelo script).
+  let pruned = 0;
+  if (prune) {
+    try {
+      const keep = new Set(prune.knownExternalIds);
+      const existing = await connector.list({ source: 'obsidian', userId: auth.user.id, limit: 10_000 });
+      for (const rec of existing) {
+        if (rec.externalId && !keep.has(rec.externalId)) {
+          const removedOk = await connector.remove(auth.user.id, rec.id);
+          if (removedOk) pruned++;
+        }
+      }
+    } catch (err) {
+      logError('POST /api/memory/sync-obsidian (prune)', err);
+    }
+  }
+
   const elapsedMs = Date.now() - startedAt;
 
   try {
@@ -140,7 +167,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       vault: vault ?? null,
       userId: auth.user.id,
-      summary: { created, updated, skipped, errors, total: notes.length, elapsedMs },
+      summary: { created, updated, skipped, errors, pruned, total: notes.length, elapsedMs },
       results,
     });
   } catch (err) {

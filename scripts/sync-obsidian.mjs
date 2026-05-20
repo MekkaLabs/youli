@@ -19,9 +19,10 @@
  *
  * Estado:
  *   Mantém SHA-256 do conteúdo de cada nota em `state.json`. Notas com hash
- *   inalterado são puladas. Notas deletadas no vault NÃO são removidas do
- *   Youli (idempotente, conservador). Para purgar, use a UI ou um endpoint
- *   futuro de cleanup.
+ *   inalterado são puladas. Notas deletadas no vault só são removidas do Youli
+ *   quando a flag `--prune` é passada (opt-in, destrutivo): o script envia a
+ *   lista COMPLETA de externalIds do vault e o servidor remove as memórias de
+ *   origem 'obsidian' que não estão mais presentes.
  *
  * Frontmatter suportado (YAML no topo do .md):
  *   ---
@@ -55,6 +56,7 @@ function parseArgs(argv) {
       case '--batch':    out.batch = Math.max(1, Math.min(200, parseInt(v, 10))); i++; break;
       case '--max-bytes': out.maxBytes = Math.max(1024, parseInt(v, 10)); i++; break;
       case '--dry-run':  out.dryRun = true; break;
+      case '--prune':    out.prune = true; break;
       case '--help':
       case '-h':
         printHelpAndExit();
@@ -82,6 +84,7 @@ Flags:
   --batch     notas por requisição             (default 50, max 200)
   --max-bytes tamanho máx por nota             (default 200000 bytes)
   --dry-run   simula sem enviar
+  --prune     remove do Youli notas deletadas no vault (opt-in, destrutivo)
   --help      mostra esta mensagem
 `);
   process.exit(code);
@@ -178,14 +181,16 @@ function sha256(s) {
 
 // ---------- API call ----------
 
-async function postBatch({ api, cookie, vault, notes }) {
+async function postBatch({ api, cookie, vault, notes, prune }) {
+  const payload = { vault, notes };
+  if (prune) payload.prune = prune;
   const res = await fetch(`${api}/api/memory/sync-obsidian`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Cookie: cookie,
     },
-    body: JSON.stringify({ vault, notes }),
+    body: JSON.stringify(payload),
   });
   const ok = res.ok;
   let body = null;
@@ -221,12 +226,16 @@ async function main() {
   console.log(`📂 Vault:  ${vault}`);
   console.log(`🌐 API:    ${api}`);
   console.log(`📝 State:  ${statePath}`);
-  console.log(`📦 Batch:  ${args.batch}${args.dryRun ? '  (DRY RUN)' : ''}`);
+  console.log(`📦 Batch:  ${args.batch}${args.dryRun ? '  (DRY RUN)' : ''}${args.prune ? '  (PRUNE)' : ''}`);
   console.log('');
 
   const state = await loadState(statePath);
   const files = await walk(vault, vault);
   console.log(`🔍 ${files.length} arquivos .md encontrados`);
+
+  // Lista completa de externalIds presentes no vault (usada para --prune).
+  const allExternalIds = files.map((f) => f.rel);
+  const allSet = new Set(allExternalIds);
 
   const changed = [];
   let unchanged = 0;
@@ -265,6 +274,13 @@ async function main() {
     for (const n of changed) {
       console.log(`[dry-run] ${n.externalId}  area=${n.area ?? '-'}  tags=${(n.tags ?? []).join(',')}`);
     }
+    if (args.prune) {
+      const stale = Object.keys(state.files).filter((rel) => !allSet.has(rel));
+      console.log('');
+      console.log(`[dry-run] ${stale.length} nota(s) ausentes do vault seriam removidas (--prune):`);
+      for (const rel of stale) console.log(`[dry-run] 🗑️  ${rel}`);
+      console.log('  (a remoção real consulta o servidor por origem=obsidian)');
+    }
     console.log(`\n✅ DRY-RUN concluído. Nenhum dado foi enviado.`);
     return;
   }
@@ -273,6 +289,7 @@ async function main() {
   let totalUpdated = 0;
   let totalSkipped = 0;
   let totalErrors = 0;
+  let totalPruned = 0;
   const start = Date.now();
 
   // Envia em batches.
@@ -316,12 +333,34 @@ async function main() {
     }
   }
 
+  // Prune: remove no servidor as notas que não existem mais no vault.
+  if (args.prune) {
+    const { ok, status, body } = await postBatch({
+      api,
+      cookie,
+      vault: path.basename(vault),
+      notes: [],
+      prune: { knownExternalIds: allExternalIds },
+    });
+    if (ok) {
+      totalPruned = body?.summary?.pruned ?? 0;
+      console.log(`🗑️  prune: ${totalPruned} memória(s) removida(s) (ausentes do vault)`);
+      // Sincroniza o state local: descarta entradas que não existem mais.
+      for (const rel of Object.keys(state.files)) {
+        if (!allSet.has(rel)) delete state.files[rel];
+      }
+    } else {
+      console.error(`❌ prune falhou: HTTP ${status}`);
+      if (body) console.error(JSON.stringify(body, null, 2));
+    }
+  }
+
   await saveState(statePath, state);
 
   const elapsed = ((Date.now() - start) / 1000).toFixed(1);
   console.log('');
   console.log(`✅ Sync concluído em ${elapsed}s`);
-  console.log(`   created=${totalCreated}  updated=${totalUpdated}  skipped=${totalSkipped}  errors=${totalErrors}`);
+  console.log(`   created=${totalCreated}  updated=${totalUpdated}  skipped=${totalSkipped}  pruned=${totalPruned}  errors=${totalErrors}`);
   console.log(`   state salvo em ${statePath}`);
 }
 
