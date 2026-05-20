@@ -14,6 +14,30 @@ import { runOrchestrator, morningBriefing } from '@/services/agents/orchestrator
 import { UserContext } from '@/services/agents/agent-executor';
 import { runOrchestratorGraph } from '@/services/agents/langgraph-orchestrator';
 import { planWorkflow, executeWorkflow } from '@/services/agents/workflow-planner';
+import { requireAuth } from '@/lib/http';
+import { readDb } from '@/repositories/local-db';
+
+/**
+ * Injeta a identidade e o perfil DO SERVIDOR (autoritativos) no contexto do
+ * usuário logado. Garante que os agentes personalizem por usuário mesmo que o
+ * cliente envie um contexto incompleto — e impede um cliente de se passar por
+ * outro perfil (os campos do servidor sobrescrevem os do cliente).
+ */
+function enrichContext(userId: string, context: UserContext): UserContext {
+  const profile = readDb(userId).profile;
+  return {
+    ...context,
+    userId,
+    profile: {
+      ...(context.profile ?? {}),
+      name: profile.name,
+      objectives: profile.objectives,
+      lifeAreas: profile.lifeAreas,
+      humanDesign: profile.humanDesign,
+      aiPersonalization: profile.aiPersonalization,
+    },
+  };
+}
 
 const SSE_HEADERS = {
   'Content-Type': 'text/event-stream',
@@ -27,19 +51,25 @@ function sseEvent(event: string, data: unknown): string {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
+
   const acceptHeader = req.headers.get('accept') || '';
 
   // Clone para poder ler o body duas vezes (SSE branch clona antes de parsear)
   const body = await req.json();
   const {
     message = '',
-    context = {} as UserContext,
+    context: rawContext = {} as UserContext,
     orchestratorConfig,
     mode = 'chat',
     threadId,
     allowResume = false,
     useWorkflowPlanner = false,
   } = body;
+
+  // Contexto enriquecido com o perfil autoritativo do usuário logado.
+  const context = enrichContext(auth.user.id, rawContext as UserContext);
 
   // ── SSE branch ──────────────────────────────────────────────────────────────
   if (acceptHeader.includes('text/event-stream')) {
