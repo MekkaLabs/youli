@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   }
 
   const interpreted = await interpretHabit(message);
-  const habit = await createHabit({
+  const habit = await createHabit(auth.user.id, {
     id: '',
     title: interpreted.title,
     frequency: interpreted.frequency,

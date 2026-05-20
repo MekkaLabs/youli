@@ -6,7 +6,7 @@ import { requireAuth } from '@/lib/http';
 export async function GET() {
   const auth = await requireAuth();
   if (auth.error) return auth.response;
-  return NextResponse.json(readDb().profile);
+  return NextResponse.json(readDb(auth.user.id).profile);
 }
 
 function validatePatch(body: Partial<UserProfile>): string | null {
@@ -30,7 +30,7 @@ async function updateProfile(req: Request) {
   const body = (await req.json().catch(() => ({}))) as Partial<UserProfile>;
   const err = validatePatch(body);
   if (err) return NextResponse.json({ error: err }, { status: 400 });
-  const db = readDb();
+  const db = readDb(auth.user.id);
   db.profile = {
     ...db.profile,
     ...body,
@@ -40,7 +40,7 @@ async function updateProfile(req: Request) {
     },
     aiPersonalization: body.aiPersonalization || db.profile.aiPersonalization
   };
-  writeDb(db);
+  writeDb(auth.user.id, db);
   return NextResponse.json(db.profile);
 }
 

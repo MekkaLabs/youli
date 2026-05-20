@@ -6,14 +6,14 @@ import { requireAuth } from '@/lib/http';
 export async function GET() {
   const auth = await requireAuth();
   if (auth.error) return auth.response;
-  return NextResponse.json(listFitnessActivities());
+  return NextResponse.json(listFitnessActivities(auth.user.id));
 }
 
 export async function POST(req: Request) {
   const auth = await requireAuth();
   if (auth.error) return auth.response;
   const body = (await req.json()) as Partial<FitnessActivity>;
-  const created = createFitnessActivity({
+  const created = createFitnessActivity(auth.user.id, {
     id: body.id || `fit-${Date.now()}`,
     source: body.source || 'mock',
     type: body.type || 'Treino',

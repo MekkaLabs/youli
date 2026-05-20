@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { validateCredentials, getSessionCookieName, signSession, getSessionTtlSeconds } from '../../../../src/services/auth';
+import { seedUserIfMissing } from '../../../../src/repositories/local-db';
 
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as { email?: string; password?: string };
@@ -10,6 +11,9 @@ export async function POST(req: Request) {
   if (!user) {
     return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 });
   }
+
+  // Garante que o usuário tenha seu próprio banco inicializado com a identidade.
+  seedUserIfMissing(user.id, { name: user.name, email: user.email });
 
   const token = signSession(user);
   // Retorna o token no body para clientes sem cookie-jar confiável (mobile).

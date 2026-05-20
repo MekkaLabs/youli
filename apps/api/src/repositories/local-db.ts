@@ -26,9 +26,23 @@ export interface LocalDb {
   fitness: FitnessActivity[];
 }
 
-const dbPath = path.join(process.cwd(), 'src', 'repositories', '.data', 'db.json');
+const DATA_DIR = path.join(process.cwd(), 'src', 'repositories', '.data');
+const LEGACY_DB_PATH = path.join(DATA_DIR, 'db.json');
+const USERS_DIR = path.join(DATA_DIR, 'users');
+
+/** Dono do sistema — herda o db.json legado (preserva os dados do Gustavo). */
+const OWNER_ID = process.env.YOULI_OWNER_ID || 'user-gusta-001';
 
 function nowIso() { return new Date().toISOString(); }
+
+/** Sanitiza o userId para uso seguro como nome de arquivo. */
+function safeUserId(userId: string): string {
+  return userId.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function userDbPath(userId: string): string {
+  return path.join(USERS_DIR, `${safeUserId(userId)}.json`);
+}
 
 const PERSONA_AREA_MAP = {
   leonardo: 'dashboard',
@@ -139,21 +153,108 @@ const defaultDb: LocalDb = {
   ]
 };
 
-export function readDb(): LocalDb {
-  if (!fs.existsSync(dbPath)) {
-    fs.writeFileSync(dbPath, JSON.stringify(defaultDb, null, 2));
-    return structuredClone(defaultDb);
+// ──────────────────────────────────────────────
+// SEED POR USUÁRIO
+// ──────────────────────────────────────────────
+
+/** Perfil em branco (sem dados pessoais) para um novo usuário. */
+function blankProfile(userId: string, identity?: { name?: string; email?: string }): UserProfile {
+  return ensureProfileDefaults({
+    id: userId,
+    name: identity?.name || 'Usuário',
+    email: identity?.email || '',
+    role: 'user',
+    timezone: 'America/Sao_Paulo',
+    objectives: [],
+    routine: [],
+    preferences: [],
+    projects: [],
+    lifeAreas: [],
+    behaviorPatterns: [],
+    energyProfile: 'medium',
+    persistentContext: [],
+    integrations: { strava: 'disconnected', openFinance: 'disconnected', calendar: 'disconnected', nativeCalendar: 'disconnected' },
+    activeModules: ['overview', 'tarefas', 'habitos', 'metas', 'financeiro', 'calendario', 'insights', 'fitness', 'perfil', 'memoria', 'orquestracao'],
+    humanDesign: DEFAULT_HD_SETTINGS,
+    aiPersonalization: buildDefaultAiPersonalization(),
+  });
+}
+
+/** Dataset vazio (slate limpo) para um novo usuário. */
+function blankUserData(userId: string, identity?: { name?: string; email?: string }): LocalDb {
+  return {
+    profile: blankProfile(userId, identity),
+    connections: [],
+    tasks: [],
+    goals: [],
+    habits: [],
+    insights: [],
+    memory: [],
+    calendar: [],
+    fitness: [],
+  };
+}
+
+/** Seed inicial de um usuário: owner herda o seed rico; demais começam vazios. */
+function buildSeed(userId: string, identity?: { name?: string; email?: string }): LocalDb {
+  if (userId === OWNER_ID) {
+    return {
+      ...structuredClone(defaultDb),
+      profile: ensureProfileDefaults({ ...defaultDb.profile, id: userId }),
+    };
   }
-  const parsed = JSON.parse(fs.readFileSync(dbPath, 'utf8')) as LocalDb;
-  parsed.profile = ensureProfileDefaults(parsed.profile);
-  return parsed;
+  return blankUserData(userId, identity);
 }
 
-export function writeDb(db: LocalDb) {
-  fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
+/**
+ * Lê o banco LOCAL de UM usuário (arquivo próprio em .data/users/{id}.json).
+ * - Se não existe: o owner migra o db.json legado (uma vez); demais recebem
+ *   slate limpo. Em todos os casos o seed é persistido.
+ */
+export function readDb(userId: string): LocalDb {
+  const p = userDbPath(userId);
+  if (fs.existsSync(p)) {
+    const parsed = JSON.parse(fs.readFileSync(p, 'utf8')) as LocalDb;
+    parsed.profile = ensureProfileDefaults(parsed.profile);
+    return parsed;
+  }
+
+  fs.mkdirSync(USERS_DIR, { recursive: true });
+
+  // Migração única: o owner herda o db.json legado (preserva dados existentes).
+  if (userId === OWNER_ID && fs.existsSync(LEGACY_DB_PATH)) {
+    const legacy = JSON.parse(fs.readFileSync(LEGACY_DB_PATH, 'utf8')) as LocalDb;
+    legacy.profile = ensureProfileDefaults({ ...legacy.profile, id: userId });
+    fs.writeFileSync(p, JSON.stringify(legacy, null, 2));
+    return legacy;
+  }
+
+  const seed = buildSeed(userId);
+  fs.writeFileSync(p, JSON.stringify(seed, null, 2));
+  return structuredClone(seed);
 }
 
-export function resetDb() {
-  writeDb(structuredClone(defaultDb));
-  return readDb();
+export function writeDb(userId: string, db: LocalDb) {
+  fs.mkdirSync(USERS_DIR, { recursive: true });
+  fs.writeFileSync(userDbPath(userId), JSON.stringify(db, null, 2));
+}
+
+export function resetDb(userId: string) {
+  writeDb(userId, buildSeed(userId));
+  return readDb(userId);
+}
+
+/**
+ * Garante que o usuário tenha um db inicializado com sua identidade.
+ * Chamado no registro/login. Idempotente.
+ */
+export function seedUserIfMissing(userId: string, identity?: { name?: string; email?: string }): void {
+  const p = userDbPath(userId);
+  if (fs.existsSync(p)) return;
+  fs.mkdirSync(USERS_DIR, { recursive: true });
+  if (userId === OWNER_ID && fs.existsSync(LEGACY_DB_PATH)) {
+    readDb(userId); // dispara a migração do legado
+    return;
+  }
+  fs.writeFileSync(p, JSON.stringify(buildSeed(userId, identity), null, 2));
 }

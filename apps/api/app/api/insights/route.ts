@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { listInsights } from '@/repositories/store';
+import { requireAuth } from '@/lib/http';
 
 type InsightContext = {
   habits?: { total?: number; activeStreaks?: number; completedToday?: number };
@@ -11,7 +12,9 @@ type InsightContext = {
 };
 
 export async function GET() {
-  return NextResponse.json(await listInsights());
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
+  return NextResponse.json(await listInsights(auth.user.id));
 }
 
 export async function POST(req: Request) {

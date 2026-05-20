@@ -1,24 +1,24 @@
 import type { CalendarEvent, FitnessActivity } from '@youli/shared';
 import { readDb, writeDb } from './local-db';
 
-export function listCalendarEvents() {
-  return readDb().calendar;
+export function listCalendarEvents(userId: string) {
+  return readDb(userId).calendar;
 }
 
-export function createCalendarEvent(event: CalendarEvent) {
-  const db = readDb();
+export function createCalendarEvent(userId: string, event: CalendarEvent) {
+  const db = readDb(userId);
   db.calendar.unshift(event);
-  writeDb(db);
+  writeDb(userId, db);
   return event;
 }
 
-export function listFitnessActivities() {
-  return readDb().fitness;
+export function listFitnessActivities(userId: string) {
+  return readDb(userId).fitness;
 }
 
-export function createFitnessActivity(activity: FitnessActivity) {
-  const db = readDb();
+export function createFitnessActivity(userId: string, activity: FitnessActivity) {
+  const db = readDb(userId);
   db.fitness.unshift(activity);
-  writeDb(db);
+  writeDb(userId, db);
   return activity;
 }

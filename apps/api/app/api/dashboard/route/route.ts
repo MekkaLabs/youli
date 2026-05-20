@@ -4,15 +4,20 @@ import type { DashboardState } from '@youli/shared';
 import { getOpenFinanceSummary } from '../../../../src/services/open-finance';
 import { listTasks, listInsights } from '../../../../src/repositories/store';
 import { listCalendarEvents } from '../../../../src/repositories/life-stream';
+import { requireAuth } from '@/lib/http';
 
 const orchestrator = new AioxOrchestrator();
 
 export async function GET() {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
+  const userId = auth.user.id;
+
   const [tasks, insights, events, finance] = await Promise.all([
-    listTasks(),
-    listInsights(),
-    Promise.resolve(listCalendarEvents()),
-    getOpenFinanceSummary('u1')
+    listTasks(userId),
+    listInsights(userId),
+    Promise.resolve(listCalendarEvents(userId)),
+    getOpenFinanceSummary(userId)
   ]);
 
   const topTasks = tasks

@@ -19,31 +19,31 @@ export async function POST(req: Request) {
     let created: unknown = null;
 
     if (interpreted.action.type === 'create_task') {
-      created = await createTask({ id: randomUUID(), ...interpreted.action.payload });
+      created = await createTask(auth.user.id, { id: randomUUID(), ...interpreted.action.payload });
     }
 
     if (interpreted.action.type === 'create_goal') {
-      created = await createGoal({ id: randomUUID(), ...interpreted.action.payload });
+      created = await createGoal(auth.user.id, { id: randomUUID(), ...interpreted.action.payload });
     }
 
     if (interpreted.action.type === 'create_habit') {
-      created = await createHabit({ id: randomUUID(), ...interpreted.action.payload });
+      created = await createHabit(auth.user.id, { id: randomUUID(), ...interpreted.action.payload });
     }
 
     if (interpreted.action.type === 'create_calendar_event') {
-      created = createCalendarEvent({ id: randomUUID(), ...interpreted.action.payload });
+      created = createCalendarEvent(auth.user.id, { id: randomUUID(), ...interpreted.action.payload });
     }
 
     if (interpreted.action.type === 'create_fitness_activity') {
-      created = createFitnessActivity({ id: randomUUID(), ...interpreted.action.payload });
+      created = createFitnessActivity(auth.user.id, { id: randomUUID(), ...interpreted.action.payload });
     }
 
     if (interpreted.action.type === 'create_insight') {
-      created = await createInsight({ id: randomUUID(), ...interpreted.action.payload });
+      created = await createInsight(auth.user.id, { id: randomUUID(), ...interpreted.action.payload });
     }
 
     if (interpreted.action.type === 'create_memory') {
-      await addMemory({ id: randomUUID(), ...interpreted.action.payload });
+      await addMemory({ id: randomUUID(), ...interpreted.action.payload, userId: auth.user.id });
       created = interpreted.action.payload;
     }
 

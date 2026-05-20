@@ -4,8 +4,8 @@ import { readDb } from '../repositories/local-db';
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const MODEL = 'claude-sonnet-4-6';
 
-export async function runClaudeCopilot(message: string, section: SystemSection) {
-  const db = readDb();
+export async function runClaudeCopilot(userId: string, message: string, section: SystemSection) {
+  const db = readDb(userId);
   const profile = db.profile;
 
   // Contexto compacto do usuário para o prompt

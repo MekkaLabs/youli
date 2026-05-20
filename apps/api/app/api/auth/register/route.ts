@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createUser, getSessionCookieName, signSession, getSessionTtlSeconds } from '../../../../src/services/auth';
+import { seedUserIfMissing } from '../../../../src/repositories/local-db';
 
 // POST /api/auth/register — cria conta pública (role=user sempre)
 export async function POST(req: Request) {
@@ -22,6 +23,8 @@ export async function POST(req: Request) {
 
   const result = await createUser({ name, email, password, role: 'user' });
   if ('error' in result) return NextResponse.json(result, { status: 400 });
+
+  seedUserIfMissing(result.id, { name: result.name, email: result.email });
 
   const token = signSession(result);
   const res = NextResponse.json({ ok: true, user: result, token }, { status: 201 });

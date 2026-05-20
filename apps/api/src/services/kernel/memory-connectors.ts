@@ -33,14 +33,14 @@ export interface MemoryConnector {
 
 class LocalMemoryConnector implements MemoryConnector {
   async add(record: MemoryRecord) {
-    const db = readDb();
+    const db = readDb(record.userId);
     db.memory.unshift(record);
     if (db.memory.length > 5000) db.memory = db.memory.slice(0, 5000);
-    writeDb(db);
+    writeDb(record.userId, db);
   }
 
   async upsert(record: MemoryRecord): Promise<UpsertResult> {
-    const db = readDb();
+    const db = readDb(record.userId);
 
     // Match por externalId+userId (chave preferida para sync externo, ex: obsidian)
     if (record.externalId) {
@@ -55,7 +55,7 @@ class LocalMemoryConnector implements MemoryConnector {
           createdAt: db.memory[idx].createdAt,
         };
         db.memory[idx] = merged;
-        writeDb(db);
+        writeDb(record.userId, db);
         return { action: 'updated', record: merged };
       }
     } else {
@@ -64,19 +64,21 @@ class LocalMemoryConnector implements MemoryConnector {
       if (idx !== -1) {
         const merged: MemoryRecord = { ...db.memory[idx], ...record, createdAt: db.memory[idx].createdAt };
         db.memory[idx] = merged;
-        writeDb(db);
+        writeDb(record.userId, db);
         return { action: 'updated', record: merged };
       }
     }
 
     db.memory.unshift(record);
     if (db.memory.length > 5000) db.memory = db.memory.slice(0, 5000);
-    writeDb(db);
+    writeDb(record.userId, db);
     return { action: 'created', record };
   }
 
   async list(opts: ListMemoryOptions = {}) {
-    const db = readDb();
+    // O store local é por-usuário; sem userId não há arquivo a ler.
+    if (!opts.userId) return [];
+    const db = readDb(opts.userId);
     let items = db.memory;
     if (opts.userId) items = items.filter((m) => m.userId === opts.userId);
     if (opts.source) items = items.filter((m) => m.source === opts.source);
@@ -89,11 +91,11 @@ class LocalMemoryConnector implements MemoryConnector {
   }
 
   async remove(userId: string, id: string): Promise<boolean> {
-    const db = readDb();
+    const db = readDb(userId);
     const before = db.memory.length;
     db.memory = db.memory.filter((m) => !(m.id === id && m.userId === userId));
     const removed = db.memory.length !== before;
-    if (removed) writeDb(db);
+    if (removed) writeDb(userId, db);
     return removed;
   }
 }

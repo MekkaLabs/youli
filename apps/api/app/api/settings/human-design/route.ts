@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { HumanDesignSettings } from '@youli/shared';
 import { readDb, writeDb } from '../../../../src/repositories/local-db';
+import { requireAuth } from '@/lib/http';
 
 function isValidDate(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -25,7 +26,9 @@ function validateHumanDesignPatch(input: Partial<HumanDesignSettings>): string |
 }
 
 export async function GET() {
-  const db = readDb();
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
+  const db = readDb(auth.user.id);
   return NextResponse.json(
     db.profile.humanDesign || {
       enabled: false,
@@ -36,11 +39,13 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   const body = (await req.json().catch(() => ({}))) as Partial<HumanDesignSettings>;
   const error = validateHumanDesignPatch(body);
   if (error) return NextResponse.json({ error }, { status: 400 });
 
-  const db = readDb();
+  const db = readDb(auth.user.id);
   const current = db.profile.humanDesign || { enabled: false, consentAccepted: false, mode: 'off' as const };
   db.profile.humanDesign = {
     ...current,
@@ -48,6 +53,6 @@ export async function PATCH(req: Request) {
     birthData: body.birthData ? { ...(current.birthData || {}), ...body.birthData } : current.birthData,
     chart: body.chart ? { ...(current.chart || {}), ...body.chart } : current.chart,
   };
-  writeDb(db);
+  writeDb(auth.user.id, db);
   return NextResponse.json(db.profile.humanDesign);
 }

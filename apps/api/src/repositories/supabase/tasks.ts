@@ -2,8 +2,6 @@ import type { Task } from '@youli/shared';
 import { supabase, hasSupabase } from '../../db/supabase';
 import { readDb, writeDb } from '../local-db';
 
-const PROFILE_ID = process.env.YOULI_PROFILE_ID || '';
-
 // ── Helpers de conversão ─────────────────────────────────────────────────────
 function rowToTask(r: any): Task {
   return {
@@ -18,33 +16,33 @@ function rowToTask(r: any): Task {
 }
 
 // ── Listagem ─────────────────────────────────────────────────────────────────
-export async function listTasks(): Promise<Task[]> {
-  if (!hasSupabase() || !PROFILE_ID) return readDb().tasks;
+export async function listTasks(userId: string): Promise<Task[]> {
+  if (!hasSupabase() || !userId) return readDb(userId).tasks;
 
   const { data, error } = await supabase!
     .from('tasks')
     .select('*')
-    .eq('profile_id', PROFILE_ID)
+    .eq('profile_id', userId)
     .order('priority', { ascending: false });
 
-  if (error) { console.error('[tasks] list:', error.message); return readDb().tasks; }
+  if (error) { console.error('[tasks] list:', error.message); return readDb(userId).tasks; }
   return (data ?? []).map(rowToTask);
 }
 
 // ── Criação ──────────────────────────────────────────────────────────────────
-export async function createTask(payload: Omit<Task, 'id'>): Promise<Task> {
-  if (!hasSupabase() || !PROFILE_ID) {
-    const db = readDb();
+export async function createTask(userId: string, payload: Omit<Task, 'id'>): Promise<Task> {
+  if (!hasSupabase() || !userId) {
+    const db = readDb(userId);
     const task: Task = { id: `t-${Date.now()}`, ...payload };
     db.tasks.push(task);
-    writeDb(db);
+    writeDb(userId, db);
     return task;
   }
 
   const { data, error } = await supabase!
     .from('tasks')
     .insert({
-      profile_id: PROFILE_ID,
+      profile_id: userId,
       title: payload.title,
       next_step: payload.nextStep,
       status: payload.status ?? 'todo',
@@ -58,11 +56,11 @@ export async function createTask(payload: Omit<Task, 'id'>): Promise<Task> {
 }
 
 // ── Atualização ──────────────────────────────────────────────────────────────
-export async function updateTask(id: string, patch: Partial<Task>): Promise<Task> {
-  if (!hasSupabase() || !PROFILE_ID) {
-    const db = readDb();
+export async function updateTask(userId: string, id: string, patch: Partial<Task>): Promise<Task> {
+  if (!hasSupabase() || !userId) {
+    const db = readDb(userId);
     const idx = db.tasks.findIndex(t => t.id === id);
-    if (idx >= 0) { db.tasks[idx] = { ...db.tasks[idx], ...patch }; writeDb(db); return db.tasks[idx]; }
+    if (idx >= 0) { db.tasks[idx] = { ...db.tasks[idx], ...patch }; writeDb(userId, db); return db.tasks[idx]; }
     throw new Error('Task not found');
   }
 
@@ -75,7 +73,7 @@ export async function updateTask(id: string, patch: Partial<Task>): Promise<Task
       ...(patch.nextStep !== undefined && { next_step: patch.nextStep }),
     })
     .eq('id', id)
-    .eq('profile_id', PROFILE_ID)
+    .eq('profile_id', userId)
     .select()
     .single();
 
@@ -84,12 +82,12 @@ export async function updateTask(id: string, patch: Partial<Task>): Promise<Task
 }
 
 // ── Remoção ──────────────────────────────────────────────────────────────────
-export async function deleteTask(id: string): Promise<void> {
-  if (!hasSupabase() || !PROFILE_ID) {
-    const db = readDb();
+export async function deleteTask(userId: string, id: string): Promise<void> {
+  if (!hasSupabase() || !userId) {
+    const db = readDb(userId);
     db.tasks = db.tasks.filter(t => t.id !== id);
-    writeDb(db);
+    writeDb(userId, db);
     return;
   }
-  await supabase!.from('tasks').delete().eq('id', id).eq('profile_id', PROFILE_ID);
+  await supabase!.from('tasks').delete().eq('id', id).eq('profile_id', userId);
 }

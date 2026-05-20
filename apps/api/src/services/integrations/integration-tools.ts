@@ -11,15 +11,15 @@ export interface IntegrationToolResult {
   data: unknown;
 }
 
-type ToolHandler = () => IntegrationToolResult;
+type ToolHandler = (userId: string) => IntegrationToolResult;
 
 const handlers: Record<IntegrationToolName, ToolHandler> = {
-  'calendar.getEvents': () => {
-    const db = readDb();
+  'calendar.getEvents': (userId) => {
+    const db = readDb(userId);
     return { ok: true, provider: 'native_calendar', data: db.calendar };
   },
-  'finance.getSummary': () => {
-    const db = readDb();
+  'finance.getSummary': (userId) => {
+    const db = readDb(userId);
     const tx = db.insights;
     return {
       ok: true,
@@ -30,15 +30,15 @@ const handlers: Record<IntegrationToolName, ToolHandler> = {
       },
     };
   },
-  'fitness.getActivities': () => {
-    const db = readDb();
+  'fitness.getActivities': (userId) => {
+    const db = readDb(userId);
     return { ok: true, provider: 'strava', data: db.fitness };
   },
 };
 
-export function runIntegrationTool(name: IntegrationToolName): IntegrationToolResult {
+export function runIntegrationTool(userId: string, name: IntegrationToolName): IntegrationToolResult {
   const handler = handlers[name];
   if (!handler) return { ok: false, provider: 'unknown', data: null };
-  return handler();
+  return handler(userId);
 }
 

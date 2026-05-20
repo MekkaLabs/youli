@@ -36,8 +36,8 @@ export function getDownloadedSquadNames() {
   return fs.readdirSync(base).filter((x) => fs.statSync(path.join(base, x)).isDirectory());
 }
 
-export function orchestrateLifeCopilot(message: string, currentSection: SystemSection = 'overview') {
-  const db = readDb();
+export function orchestrateLifeCopilot(userId: string, message: string, currentSection: SystemSection = 'overview') {
+  const db = readDb(userId);
   const sections = detectSections(message, currentSection);
   const downloaded = getDownloadedSquadNames();
 

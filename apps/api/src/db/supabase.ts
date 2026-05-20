@@ -11,8 +11,13 @@ export const supabase = url && key ? createClient(url, key, {
   auth: { persistSession: false },
 }) : null;
 
-// Helper: retorna true se Supabase está configurado
-export const hasSupabase = () => Boolean(supabase);
+/**
+ * Helper: usa Supabase apenas quando o cliente existe E o opt-in explícito
+ * YOULI_USE_SUPABASE=true está ligado. Default: false (persistência JSON local).
+ * Isso mantém as env vars do Supabase configuradas para o futuro sem forçar
+ * o uso antes de o schema estar aplicado/acessível.
+ */
+export const hasSupabase = () => Boolean(supabase) && process.env.YOULI_USE_SUPABASE === 'true';
 
 // Tipo auxiliar para perfil do Supabase → UserProfile do @youli/shared
 export function rowToProfile(row: any) {

@@ -4,10 +4,11 @@ import { functionChoicePolicy, plannerGate, postToolFilter, preToolFilter } from
 import { saveFunctionTrace } from './function-observability';
 import type { KernelExecutionContext, KernelExecutionResult } from './types';
 
-function invoke(functionId: string) {
-  if (functionId === 'calendar.getEvents') return runIntegrationTool('calendar.getEvents');
-  if (functionId === 'finance.getSummary') return runIntegrationTool('finance.getSummary');
-  if (functionId === 'fitness.getActivities') return runIntegrationTool('fitness.getActivities');
+function invoke(functionId: string, userId: string) {
+  if (!userId) return { ok: false, provider: 'unauthorized', data: null };
+  if (functionId === 'calendar.getEvents') return runIntegrationTool(userId, 'calendar.getEvents');
+  if (functionId === 'finance.getSummary') return runIntegrationTool(userId, 'finance.getSummary');
+  if (functionId === 'fitness.getActivities') return runIntegrationTool(userId, 'fitness.getActivities');
   return { ok: false, provider: 'unknown', data: null };
 }
 
@@ -37,7 +38,7 @@ export function executeKernelFunction(
     return { ok: false, error: pre.error, functionId, latencyMs: Math.round(performance.now() - started) };
   }
 
-  const raw = invoke(functionId);
+  const raw = invoke(functionId, context.userId ?? '');
   const post = postToolFilter(functionId, raw);
   const latencyMs = Math.round(performance.now() - started);
 

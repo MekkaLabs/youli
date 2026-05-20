@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { PersonaId, PersonaPersonalization } from '@youli/shared';
 import { PERSONA_AREA_MAP } from '../../../../src/services/agents/agent-definitions';
 import { readDb, writeDb } from '../../../../src/repositories/local-db';
+import { requireAuth } from '@/lib/http';
 
 type PersonaPatch = {
   personaId: PersonaId;
@@ -24,12 +25,16 @@ function normalizePersonas(current: PersonaPersonalization[]): PersonaPersonaliz
 }
 
 export async function GET() {
-  const db = readDb();
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
+  const db = readDb(auth.user.id);
   const personas = normalizePersonas(db.profile.aiPersonalization?.personas || []);
   return NextResponse.json({ personas });
 }
 
 export async function PATCH(req: Request) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   const body = (await req.json().catch(() => ({}))) as PersonaPatch | { personas?: PersonaPatch[] };
   const patches = Array.isArray((body as { personas?: PersonaPatch[] }).personas)
     ? (body as { personas?: PersonaPatch[] }).personas || []
@@ -47,7 +52,7 @@ export async function PATCH(req: Request) {
     }
   }
 
-  const db = readDb();
+  const db = readDb(auth.user.id);
   const normalized = normalizePersonas(db.profile.aiPersonalization?.personas || []);
   const map = new Map(normalized.map((p) => [p.personaId, p]));
 
@@ -63,7 +68,7 @@ export async function PATCH(req: Request) {
   }
 
   db.profile.aiPersonalization = { personas: normalizePersonas(Array.from(map.values())) };
-  writeDb(db);
+  writeDb(auth.user.id, db);
 
   return NextResponse.json({ personas: db.profile.aiPersonalization.personas });
 }

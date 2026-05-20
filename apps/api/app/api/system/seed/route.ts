@@ -15,7 +15,7 @@ export async function GET() {
   const auth = await requireAdmin();
   if (auth.error) return auth.response;
   try {
-    return NextResponse.json(readDb());
+    return NextResponse.json(readDb(auth.user.id));
   } catch (err) {
     return jsonError('Falha ao ler estado', 500, err, 'GET /api/system/seed');
   }
@@ -25,7 +25,7 @@ export async function POST() {
   const auth = await requireAdmin();
   if (auth.error) return auth.response;
   try {
-    return NextResponse.json(resetDb());
+    return NextResponse.json(resetDb(auth.user.id));
   } catch (err) {
     return jsonError('Falha ao resetar seed', 500, err, 'POST /api/system/seed');
   }
