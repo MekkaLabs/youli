@@ -218,3 +218,23 @@ Atacados os dois **P0** do PREMORTEM + dashboards web. **Typecheck 0 erros (api+
 3. **Migração Supabase real** (P0-2 para deploy): aplicar migrations, RLS por `user_id`, ligar `YOULI_USE_SUPABASE`. JSON não persiste no Vercel.
 4. **P1 do PREMORTEM:** rate limiting, logging estruturado/Sentry, pipeline de deploy + `eas init`, feature flags.
 5. Trocar a senha default prefilled no `app/login/page.tsx` (`teste123` → vazio/correta).
+
+---
+
+## 10. Sessão 4 — Supabase + Integrações por usuário (2026-05-20)
+
+| Tema | Entrega | Commit |
+|------|---------|--------|
+| Supabase | SQL `apps/api/supabase/migrations/002_multiuser_schema.sql` (profile_id TEXT, RLS service-role-only, seed 2 perfis) + `store.ts` gate `hasSupabase()` + `daily_insights` por profile_id | `350c04c` |
+| Strava/Zepp | Tokens **por usuário** (`.data/strava|zepp/{id}-*`), OAuth `state` assinado curto (`signOAuthState`/`verifyOAuthState`), **fix form-urlencoded** no Strava, deauthorize real; rotas auth/callback/sync/status/fitness-summary gated + por `auth.user.id` | `3f57e66` |
+
+### Estado / ativação Supabase
+- **Validado em runtime:** meta criada como Gustavo → UUID do Supabase, não aparece no JSON local, isolada da Convidada. Persistência funcionando.
+- `.env.local` da API: `NEXT_PUBLIC_SUPABASE_URL=https://zpzwqpowvkavregozioz.supabase.co`, `SUPABASE_SERVICE_ROLE_KEY=<sb_secret_...>`, `YOULI_USE_SUPABASE=true`, `YOULI_SESSION_SECRET=<set>`.
+- **Cobertura parcial:** tasks/goals/habits/insights vão pro Supabase. **profile/calendar/fitness/memory ainda em JSON local** (sem caminho Supabase no código) — próximo passo.
+
+### Strava/Zepp — notas
+- **Bug corrigido:** Strava exige `application/x-www-form-urlencoded` na troca/refresh de token (estava JSON → falhava). Confirmado na doc oficial.
+- OAuth real exige `STRAVA_CLIENT_ID`/`STRAVA_CLIENT_SECRET` no `.env.local` (hoje vazios). Callback registrado: `http://localhost:3002/api/integrations/strava/callback`.
+- Fluxo mobile de "conectar Strava" ainda precisa de UI que abra `/api/integrations/strava/auth` autenticado (cookie/bearer) — web já funciona. Follow-up.
+- Cada usuário conecta seu próprio Strava/Zepp; tokens isolados por `userId`.
