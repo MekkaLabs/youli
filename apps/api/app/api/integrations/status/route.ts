@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server';
 import { loadStravaToken, isStravaConnected } from '@/services/integrations/strava';
 import { loadZeppToken, isZeppConnected } from '@/services/integrations/zepp';
+import { loadGoogleToken, isGoogleConnected } from '@/services/integrations/google-calendar';
 import { requireAuth } from '@/lib/http';
 
 export async function GET() {
@@ -13,6 +14,7 @@ export async function GET() {
   const userId = auth.user.id;
   const stravaToken = loadStravaToken(userId);
   const zeppToken   = loadZeppToken(userId);
+  const googleToken = loadGoogleToken(userId);
 
   const status = {
     strava: {
@@ -29,9 +31,14 @@ export async function GET() {
       expiresAt: zeppToken?.expiresAt ?? null,
       isExpired: zeppToken ? Date.now() > zeppToken.expiresAt : false,
     },
+    googleCalendar: {
+      connected: isGoogleConnected(userId),
+      syncedAt: googleToken?.syncedAt ?? null,
+      expiresAt: googleToken?.expiresAt ?? null,
+      isExpired: googleToken ? Date.now() > googleToken.expiresAt : false,
+    },
     // Futuras integrações (roadmap global)
     whatsapp:       { connected: false, planned: true },
-    googleCalendar: { connected: false, planned: true },
     googleFit:      { connected: false, planned: true },
     appleHealth:    { connected: false, planned: true },
     spotify:        { connected: false, planned: true },
