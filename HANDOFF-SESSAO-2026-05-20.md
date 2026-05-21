@@ -257,3 +257,25 @@ Precisa de OAuth client Web no Google Cloud (Calendar API habilitada), redirect 
 ### Cobertura Supabase — estado
 - **No Supabase:** tasks, goals, habits, insights, **memória (após 003)**.
 - **Ainda em JSON local:** profile, calendar (eventos Google entram no calendar local), fitness. Migrar esses exige tornar `readDb`/`writeDb` async/Supabase (refactor grande, pervasivo) — **só necessário para deploy no Vercel**; no teste local/tunnel o JSON por-usuário funciona.
+
+---
+
+## 12. Sessão 6 — Deploy-prep + Hardening (2026-05-21)
+
+**Decisão de deploy:** host com **disco persistente** (Railway/Render/Fly), **não Vercel** → o design JSON atual funciona sem o refactor async. Mobile: **Expo Go via tunnel**. Por isso a "opção 2" (migrar profile/calendar/fitness+auth pro Supabase) foi **descartada por ora** (só seria necessária no Vercel).
+
+| Entrega | Detalhe | Commit |
+|---------|---------|--------|
+| Deploy-prep | `Dockerfile` (build da raiz, exclui apps/mobile) + `.dockerignore` + `docs/second-brain/DEPLOY.md`; `next.config` limpo (typedRoutes + outputFileTracingRoot). Build de produção validado (91 rotas, exit 0). | `814881c` |
+| Rate limiting | `src/lib/rate-limit.ts` (in-memory) em login (10/min) e register (5/min). Smoke: 11º → 429 + Retry-After. | `814881c` |
+| CI | `.github/workflows/ci.yml`: typecheck (workspaces) + build da API em push/PR. | `814881c` |
+
+### ⚠️ Atenção produção
+- `YOULI_SESSION_SECRET` é **OBRIGATÓRIA** (auth.ts lança erro sem ela em prod).
+- Montar **volume persistente** em `/app/apps/api/src/repositories/.data` (senão auth/profile/tokens somem no restart).
+- OAuth (Strava/Google): trocar callbacks de localhost para o domínio de produção.
+- Mobile: `EXPO_PUBLIC_API_URL` = URL da API publicada.
+
+### Hardening ainda em aberto
+- **Sentry** (logging estruturado de erros): precisa de `@sentry/nextjs` (nova dep) + DSN. Não adicionado — o `logError` atual já loga estruturado no console. Fazer quando quiser.
+- Testes de integração (além do CI de typecheck/build).
