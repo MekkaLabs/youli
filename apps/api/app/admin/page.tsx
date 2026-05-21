@@ -148,6 +148,22 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* Stats */}
+        {!loading && (
+          <section className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Total', value: users.length, cls: 'from-slate-900 to-slate-700' },
+              { label: 'Admins', value: users.filter((u) => u.role === 'admin').length, cls: 'from-rose-800 to-rose-600' },
+              { label: 'Usuários', value: users.filter((u) => u.role === 'user').length, cls: 'from-emerald-800 to-emerald-600' },
+            ].map((s) => (
+              <article key={s.label} className={`rounded-2xl bg-gradient-to-br ${s.cls} p-4 text-white`}>
+                <p className="text-xs uppercase tracking-wide text-white/80">{s.label}</p>
+                <p className="mt-1 text-3xl font-black">{s.value}</p>
+              </article>
+            ))}
+          </section>
+        )}
+
         {/* Criar usuário */}
         <section className="glass rounded-3xl p-5 md:p-6">
           <h2 className="text-lg font-bold text-slate-900">Novo usuário</h2>
@@ -183,7 +199,11 @@ export default function AdminPage() {
         <section className="glass rounded-3xl p-5 md:p-6">
           <h2 className="text-lg font-bold text-slate-900">Usuários</h2>
           {loading ? (
-            <p className="mt-4 text-sm text-slate-500">Carregando…</p>
+            <div className="mt-4 space-y-2">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-14 animate-pulse rounded-2xl bg-slate-200/70" />
+              ))}
+            </div>
           ) : (
             <div className="mt-4 space-y-2">
               {users.map((u) => (

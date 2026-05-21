@@ -58,6 +58,69 @@ const toneMap: Record<SectionKey, string> = {
   orquestracao: 'from-sky-800 to-cyan-600'
 };
 
+const descMap: Record<SectionKey, string> = {
+  overview: 'Seu retrato operacional do dia: perfil, placar, metas e agenda.',
+  tarefas: 'Organize e execute suas missões — do planejado ao concluído.',
+  metas: 'Acompanhe o progresso das suas metas de médio e longo prazo.',
+  habitos: 'Construa consistência: rituais diários e semanais com streaks.',
+  calendario: 'Sua linha do tempo — eventos do dia e da semana.',
+  insights: 'Padrões e recomendações que os agentes geram sobre sua rotina.',
+  fitness: 'Energia e treinos — atividades sincronizadas de Strava/Zepp.',
+  financeiro: 'Radar financeiro — saldos, receitas e despesas do mês.',
+  perfil: 'Sua identidade no sistema: objetivos, áreas de vida e preferências.',
+  memoria: 'Seu segundo cérebro — notas e contexto contínuo (inclui Obsidian).',
+  orquestracao: 'AIOX Core & Squads — automações e workflows por trás do sistema.'
+};
+
+const emptyMap: Record<SectionKey, { icon: string; title: string; hint: string }> = {
+  overview: { icon: '🌅', title: 'Tudo começa agora', hint: 'Use o copiloto da área para criar sua primeira tarefa ou meta.' },
+  tarefas: { icon: '✅', title: 'Nenhuma tarefa ainda', hint: 'Ex.: "criar tarefa revisar orçamento amanhã".' },
+  metas: { icon: '🎯', title: 'Nenhuma meta ainda', hint: 'Ex.: "criar meta correr 5km em 30 dias".' },
+  habitos: { icon: '🔥', title: 'Nenhum hábito ainda', hint: 'Ex.: "criar hábito ler 20 min por dia".' },
+  calendario: { icon: '📅', title: 'Agenda vazia', hint: 'Conecte o Google Calendar ou adicione um evento.' },
+  insights: { icon: '💡', title: 'Sem insights ainda', hint: 'Eles aparecem conforme você usa o sistema.' },
+  fitness: { icon: '🏃', title: 'Sem atividades', hint: 'Conecte o Strava para puxar seus treinos.' },
+  financeiro: { icon: '💰', title: 'Sem dados financeiros', hint: 'Conecte uma conta para ver seu radar.' },
+  perfil: { icon: '👤', title: 'Perfil em branco', hint: 'Conte seus objetivos ao copiloto para enriquecer.' },
+  memoria: { icon: '🧠', title: 'Memória vazia', hint: 'Sincronize seu vault Obsidian ou adicione uma nota.' },
+  orquestracao: { icon: '🤖', title: 'Nenhum squad disponível', hint: 'Configure SQUADS_PATH para habilitar squads.' }
+};
+
+function initials(name?: string): string {
+  if (!name) return '🙂';
+  return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '🙂';
+}
+
+function SkeletonBlock({ className = '' }: { className?: string }) {
+  return <div className={`animate-pulse rounded-2xl bg-slate-200/70 ${className}`} />;
+}
+
+function LoadingState() {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_1fr]">
+        <SkeletonBlock className="h-40" />
+        <SkeletonBlock className="h-40" />
+      </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <SkeletonBlock className="h-48 xl:col-span-2" />
+        <SkeletonBlock className="h-48" />
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ section }: { section: SectionKey }) {
+  const e = emptyMap[section] || emptyMap.overview;
+  return (
+    <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-white/60 p-10 text-center">
+      <p className="text-4xl">{e.icon}</p>
+      <h3 className="mt-3 text-lg font-black text-slate-800">{e.title}</h3>
+      <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">{e.hint}</p>
+    </div>
+  );
+}
+
 function money(v: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 }
@@ -88,24 +151,36 @@ export default function SectionPage() {
   const params = useParams<{ section: string }>();
   const section = (params?.section || 'overview') as SectionKey;
   const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [assistantInput, setAssistantInput] = useState('');
   const [status, setStatus] = useState('');
 
   const endpoint = endpointMap[section] || endpointMap.overview;
 
-  async function load() {
-    const r = await fetch(`${endpoint}?t=${Date.now()}`, { cache: 'no-store' });
-    const j = await r.json();
-    setData(j);
+  async function load(opts: { silent?: boolean } = {}) {
+    try {
+      const r = await fetch(`${endpoint}?t=${Date.now()}`, { cache: 'no-store' });
+      if (!r.ok) throw new Error(String(r.status));
+      const j = await r.json();
+      setData(j);
+      setError(false);
+    } catch {
+      if (!opts.silent) setError(true);
+    } finally {
+      if (!opts.silent) setLoading(false);
+    }
   }
 
   useEffect(() => {
-    load().catch(() => setData(null));
+    setLoading(true);
+    setError(false);
+    load();
   }, [section]);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      load().catch(() => null);
+      load({ silent: true }).catch(() => null);
     }, 8000);
     return () => clearInterval(timer);
   }, [section]);
@@ -146,11 +221,19 @@ export default function SectionPage() {
         <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_1fr]">
           <article className="rounded-3xl bg-white p-5 ring-1 ring-slate-200">
             <div className="flex items-start gap-4">
-              <img src={profile.avatarUrl || '/profile/gustavo-vicente.jpg'} alt="Avatar" className="h-24 w-24 rounded-2xl object-cover ring-2 ring-emerald-300" />
+              {profile.avatarUrl ? (
+                <img src={profile.avatarUrl} alt="Avatar" className="h-24 w-24 rounded-2xl object-cover ring-2 ring-emerald-300" />
+              ) : (
+                <div className="grid h-24 w-24 place-items-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-500 text-2xl font-black text-white ring-2 ring-violet-300">
+                  {initials(profile.name)}
+                </div>
+              )}
               <div className="flex-1">
                 <h2 className="text-2xl font-black text-slate-900">{profile.name || 'Usuário'}</h2>
-                <p className="text-sm text-slate-500">{profile.email || 'email@exemplo.com'} • {profile.role || 'Member'} • {profile.age || '-'} anos</p>
-                <p className="mt-2 text-sm text-slate-700">{(profile.objectives || []).join(' · ')}</p>
+                <p className="text-sm text-slate-500">{profile.email || '—'}{profile.role ? ` • ${profile.role}` : ''}{profile.age ? ` • ${profile.age} anos` : ''}</p>
+                {(profile.objectives || []).length > 0 && (
+                  <p className="mt-2 text-sm text-slate-700">{(profile.objectives || []).join(' · ')}</p>
+                )}
                 <div className="mt-3 flex flex-wrap gap-2">
                   {(profile.lifeAreas || []).map((a: string) => <span key={a} className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">{a}</span>)}
                 </div>
@@ -173,6 +256,7 @@ export default function SectionPage() {
         <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
           <article className="rounded-3xl bg-white p-5 ring-1 ring-slate-200 xl:col-span-2">
             <h3 className="text-lg font-black">Roadmap pessoal (currículo vivo)</h3>
+            {goals.length === 0 && <p className="mt-3 text-sm text-slate-400">Nenhuma meta ainda — peça uma ao copiloto acima.</p>}
             <div className="mt-3 space-y-2">
               {goals.map((g: any) => (
                 <div key={g.id} className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
@@ -190,6 +274,7 @@ export default function SectionPage() {
 
           <article className="rounded-3xl bg-white p-5 ring-1 ring-slate-200">
             <h3 className="text-lg font-black">Agenda imediata</h3>
+            {calendar.length === 0 && <p className="mt-3 text-sm text-slate-400">Sem eventos. Conecte o Google Calendar.</p>}
             <div className="mt-3 space-y-2">
               {calendar.slice(0, 4).map((ev: any) => (
                 <div key={ev.id} className="rounded-xl bg-amber-50 p-2 ring-1 ring-amber-100">
@@ -302,6 +387,11 @@ export default function SectionPage() {
   );
 
   const renderBySection = () => {
+    // Empty state para seções baseadas em lista (sem dados ainda).
+    const listSections: SectionKey[] = ['tarefas', 'metas', 'habitos', 'calendario', 'insights', 'fitness'];
+    if (listSections.includes(section) && Array.isArray(data) && data.length === 0) {
+      return <EmptyState section={section} />;
+    }
     if (section === 'overview') return renderOverview();
     if (section === 'tarefas') return renderTaskPipeline(data || []);
     if (section === 'metas') return renderGoalsBoard(data || []);
@@ -359,7 +449,7 @@ export default function SectionPage() {
     <div className="space-y-4">
       <header className={`rounded-3xl bg-gradient-to-r ${headerGradient} p-6 text-white shadow-lg`}>
         <h1 className="text-3xl font-black md:text-4xl">{titleMap[section] || 'Área do Sistema'}</h1>
-        <p className="mt-2 text-sm text-white/85">Módulo dedicado, com visual e lógica específicos para este contexto.</p>
+        <p className="mt-2 text-sm text-white/85">{descMap[section] || 'Módulo dedicado deste contexto.'}</p>
       </header>
 
       <section className="rounded-3xl bg-white p-5 ring-1 ring-slate-200">
@@ -377,7 +467,20 @@ export default function SectionPage() {
         {status && <p className="mt-2 text-xs font-medium text-slate-600">{status}</p>}
       </section>
 
-      {renderBySection()}
+      {loading ? (
+        <LoadingState />
+      ) : error ? (
+        <div className="rounded-3xl border-2 border-dashed border-rose-200 bg-rose-50 p-8 text-center">
+          <p className="text-3xl">⚠️</p>
+          <h3 className="mt-2 text-lg font-black text-rose-800">Não consegui carregar esta área</h3>
+          <p className="mt-1 text-sm text-rose-600">Verifique se você está logado e se a API está no ar.</p>
+          <button onClick={() => { setLoading(true); setError(false); load(); }} className="mt-4 rounded-xl bg-rose-700 px-4 py-2 text-sm font-semibold text-white">
+            Tentar de novo
+          </button>
+        </div>
+      ) : (
+        renderBySection()
+      )}
     </div>
   );
 }
