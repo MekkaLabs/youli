@@ -238,3 +238,22 @@ Atacados os dois **P0** do PREMORTEM + dashboards web. **Typecheck 0 erros (api+
 - OAuth real exige `STRAVA_CLIENT_ID`/`STRAVA_CLIENT_SECRET` no `.env.local` (hoje vazios). Callback registrado: `http://localhost:3002/api/integrations/strava/callback`.
 - Fluxo mobile de "conectar Strava" ainda precisa de UI que abra `/api/integrations/strava/auth` autenticado (cookie/bearer) — web já funciona. Follow-up.
 - Cada usuário conecta seu próprio Strava/Zepp; tokens isolados por `userId`.
+
+---
+
+## 11. Sessão 5 — Memória/Obsidian + Google Calendar no Supabase (2026-05-20)
+
+| Tema | Entrega | Commit |
+|------|---------|--------|
+| Memória/Obsidian | `SupabaseMemoryConnector` (upsert por `user_id`+`external_id`) + migration `003_memory_obsidian.sql` (colunas source/external_id/tags/area). `getMemoryConnector` usa Supabase quando ligado. | `f4a0cf6` |
+| Google Calendar | `google-calendar.ts` (OAuth2 web-server, token por usuário, sync events.list) + rotas `/api/integrations/google/{auth,callback,sync}` gated + state assinado + `upsertCalendarEvents`. | `1cc8f68` |
+
+### ⚠️ AÇÃO PENDENTE — rodar migration 003
+O sync do Obsidian foi testado end-to-end: **auth + connector Supabase OK**, mas falhou nas 17 notas com `Could not find the 'area' column` porque o **003 não foi aplicado**. Rodar `apps/api/supabase/migrations/003_memory_obsidian.sql` no SQL Editor → depois re-rodar o sync (state não foi gravado, ele reprocessa as 17).
+
+### Google Calendar — setup
+Precisa de OAuth client Web no Google Cloud (Calendar API habilitada), redirect `http://localhost:3002/api/integrations/google/callback`, e `GOOGLE_CLIENT_ID/SECRET` no `.env.local`. Conectar via `/api/integrations/google/auth` (logado).
+
+### Cobertura Supabase — estado
+- **No Supabase:** tasks, goals, habits, insights, **memória (após 003)**.
+- **Ainda em JSON local:** profile, calendar (eventos Google entram no calendar local), fitness. Migrar esses exige tornar `readDb`/`writeDb` async/Supabase (refactor grande, pervasivo) — **só necessário para deploy no Vercel**; no teste local/tunnel o JSON por-usuário funciona.
