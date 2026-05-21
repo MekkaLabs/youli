@@ -1,0 +1,23 @@
+# Dependências e builds (reinstalados/rebuildados dentro da imagem)
+**/node_modules
+**/.next
+**/dist
+**/.expo
+
+# App mobile não é necessário para a API (reduz muito o contexto/instalação)
+apps/mobile
+
+# Estado de runtime (vem do volume persistente, não da imagem)
+apps/api/src/repositories/.data
+
+# VCS, docs, tooling, logs
+.git
+.github
+.claude
+docs
+*.log
+**/*.log
+.env
+.env.local
+**/.env.local
+.DS_Store

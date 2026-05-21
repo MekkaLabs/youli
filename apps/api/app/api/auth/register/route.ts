@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
 import { createUser, getSessionCookieName, signSession, getSessionTtlSeconds } from '../../../../src/services/auth';
 import { seedUserIfMissing } from '../../../../src/repositories/local-db';
+import { enforceRateLimit } from '../../../../src/lib/rate-limit';
 
 // POST /api/auth/register — cria conta pública (role=user sempre)
 export async function POST(req: Request) {
+  // Mitiga abuso de criação de contas: 5/min por IP.
+  const limited = enforceRateLimit(req, 'register', 5, 60_000);
+  if (limited) return limited;
+
   const body = (await req.json().catch(() => ({}))) as {
     name?: string;
     email?: string;

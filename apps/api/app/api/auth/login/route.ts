@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server';
 import { validateCredentials, getSessionCookieName, signSession, getSessionTtlSeconds } from '../../../../src/services/auth';
 import { seedUserIfMissing } from '../../../../src/repositories/local-db';
+import { enforceRateLimit } from '../../../../src/lib/rate-limit';
 
 export async function POST(req: Request) {
+  // Mitiga brute-force: 10 tentativas/min por IP.
+  const limited = enforceRateLimit(req, 'login', 10, 60_000);
+  if (limited) return limited;
+
   const body = (await req.json().catch(() => ({}))) as { email?: string; password?: string };
   const email = (body.email || '').trim();
   const password = (body.password || '').trim();

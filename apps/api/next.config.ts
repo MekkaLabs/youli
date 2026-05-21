@@ -1,10 +1,11 @@
 import type { NextConfig } from 'next';
+import path from 'node:path';
 
 const nextConfig: NextConfig = {
   // Habilita type-checking nas rotas (next/link, useRouter etc.)
-  experimental: {
-    typedRoutes: true,
-  },
+  typedRoutes: true,
+  // Monorepo: raiz para o file tracing (silencia warning e corrige deploy).
+  outputFileTracingRoot: path.join(process.cwd(), '../..'),
   // Garante que pacotes do monorepo sejam tratados como transpiled.
   transpilePackages: [
     '@youli/shared',
