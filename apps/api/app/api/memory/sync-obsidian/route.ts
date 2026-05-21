@@ -36,6 +36,7 @@
  *  }
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { MemoryEngine } from '@youli/memory';
 import { getMemoryConnector } from '@/services/kernel/memory-connectors';
@@ -109,7 +110,8 @@ export async function POST(req: NextRequest) {
       }
 
       const record: MemoryRecord = {
-        id: `mem_obsidian_${hash(`${auth.user.id}:${note.externalId}`)}`,
+        // PK novo a cada inserção; a idempotência vem do upsert por (userId, externalId).
+        id: randomUUID(),
         userId: auth.user.id,
         type: note.type ?? 'fact',
         text: trimmed.slice(0, 20_000),
@@ -173,14 +175,4 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     return jsonError('Erro ao construir resposta de sync', 500, err, 'POST /api/memory/sync-obsidian');
   }
-}
-
-// FNV-1a 32-bit hex — sem dep externa.
-function hash(input: string): string {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < input.length; i++) {
-    h ^= input.charCodeAt(i);
-    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
-  }
-  return h.toString(16).padStart(8, '0');
 }
