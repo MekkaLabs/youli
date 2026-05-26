@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { parseVoiceIntent, VoiceIntent } from '@/services/voice/voice-intent-parser';
+import { requireAuth } from '@/lib/http';
 
 // Tipos de ação executável
 type ActionResult = {
@@ -27,8 +28,10 @@ async function executeIntent(
   profileId: string,
   context: Record<string, unknown>,
   baseUrl: string,
+  authHeaders: Record<string, string> = {},
 ): Promise<ActionResult> {
-  const headers = { 'Content-Type': 'application/json' };
+  // Auth do caller é propagada para os fetches internos (senão middleware/requireAuth retornam 401).
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', ...authHeaders };
 
   switch (intent.type) {
 
@@ -226,11 +229,15 @@ async function executeIntent(
 // ─── Handler principal ────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  // P0: auth obrigatória. profileId vem SEMPRE do servidor — nunca do body
+  // (evita impersonação por usuário logado).
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
+
   try {
     const body = await req.json();
-    const { text, profileId = 'demo', context = {} } = body as {
+    const { text, context = {} } = body as {
       text: string;
-      profileId?: string;
       context?: Record<string, unknown>;
     };
 
@@ -238,14 +245,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'text é obrigatório' }, { status: 400 });
     }
 
+    const profileId = auth.user.id;
+
     // Parse da intenção
     const intent = parseVoiceIntent(text);
 
     // Monta base URL para chamadas internas
     const baseUrl = req.nextUrl.origin;
 
+    // Propaga auth do caller para os fetches internos.
+    const authHeaders: Record<string, string> = {};
+    const authz = req.headers.get('authorization');
+    const cookie = req.headers.get('cookie');
+    if (authz) authHeaders['Authorization'] = authz;
+    if (cookie) authHeaders['Cookie'] = cookie;
+
     // Executa ação
-    const result = await executeIntent(intent, profileId, context, baseUrl);
+    const result = await executeIntent(intent, profileId, context, baseUrl, authHeaders);
 
     return NextResponse.json({
       intent,
