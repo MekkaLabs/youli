@@ -7,6 +7,7 @@ import {
   rollbackWorkflow,
   updateWorkflowDraft
 } from '@/services/agents/workflow-catalog';
+import { requireAdmin } from '@/lib/http';
 
 const VALID_AREAS: LifeArea[] = [
   'dashboard',
@@ -26,6 +27,9 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
+  // Catálogo global de workflows → admin-only.
+  const auth = await requireAdmin();
+  if (auth.error) return auth.response;
   const body = await req.json().catch(() => ({}));
   const area = body?.area as LifeArea | undefined;
   if (!area || !VALID_AREAS.includes(area)) {

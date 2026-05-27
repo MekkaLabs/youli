@@ -4,7 +4,7 @@
  * uma análise do impacto nas métricas de vida (90 dias)
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { logError } from '@/lib/http';
+import { logError, requireAuth } from '@/lib/http';
 
 interface WhatIfRequest {
   scenario: string;
@@ -98,6 +98,8 @@ function analyzeScenario(scenario: string, metrics: WhatIfRequest['currentMetric
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   try {
     const body: WhatIfRequest = await req.json();
     const { scenario, currentMetrics = {} } = body;

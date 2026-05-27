@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { DEFAULT_ORCHESTRATOR } from '@/services/agents/agent-definitions';
+import { requireAdmin } from '@/lib/http';
 
 // Em produção, isso viria do Supabase profile
 // Por ora, usa variável de ambiente ou padrão
@@ -49,6 +50,9 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
+  // Config global do orquestrador → admin-only.
+  const auth = await requireAdmin();
+  if (auth.error) return auth.response;
   try {
     const body = await req.json();
     const { name, emoji } = body;

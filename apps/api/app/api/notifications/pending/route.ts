@@ -4,12 +4,14 @@
  * Por ora retorna mock — integração com Supabase realtime na Semana 5
  */
 import { NextResponse } from 'next/server';
-import { logError } from '@/lib/http';
+import { logError, requireAuth } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   try {
     // TODO(notifications): buscar do Supabase quando signal_bus estiver em prod
     const notifications = [
@@ -37,6 +39,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   try {
     // body reservado para uso futuro (marcar como lida, criar notif custom)
     void (await req.json().catch(() => ({})));

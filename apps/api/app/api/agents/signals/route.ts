@@ -4,17 +4,22 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { processSignals, getInMemorySignals } from '@/services/signals/agent-signal-bus';
+import { requireAuth } from '@/lib/http';
 
-export async function GET(req: NextRequest) {
-  const profileId = req.nextUrl.searchParams.get('profileId') || 'default';
-  const signals = getInMemorySignals(profileId);
+export async function GET(_req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
+  const signals = getInMemorySignals(auth.user.id);
   return NextResponse.json({ signals, total: signals.length });
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   try {
-    const { profileId = 'default', context = {} } = await req.json();
-    const processed = await processSignals(profileId, context);
+    const { context = {} } = await req.json();
+    // profileId vem SEMPRE do servidor (evita impersonação).
+    const processed = await processSignals(auth.user.id, context);
     return NextResponse.json({ signals: processed, total: processed.length });
   } catch (err) {
     return NextResponse.json({ error: 'Erro ao processar sinais' }, { status: 500 });

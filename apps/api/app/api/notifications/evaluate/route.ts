@@ -4,6 +4,7 @@
  * O mobile chama isso a cada hora (background fetch) ou ao abrir o app
  */
 import { NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -57,6 +58,8 @@ function cooldownOk(type: string, hours: number, last?: Record<string, string>):
 }
 
 export async function POST(req: Request) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.response;
   try {
     const ctx: EvaluateContext = await req.json();
     const notifications: SmartNotification[] = [];
