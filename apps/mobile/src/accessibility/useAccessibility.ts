@@ -3,10 +3,10 @@
  * Também exporta utilitários de estilo acessível.
  */
 
+import type { ViewStyle } from 'react-native';
+
 export { useAccessibility } from './AccessibilityProvider';
 export type { AccessibilitySettings, FontScale } from './AccessibilityProvider';
-
-import type { ViewStyle } from 'react-native';
 
 /**
  * Garante tap target mínimo de 48×48pt (WCAG 2.5.5).

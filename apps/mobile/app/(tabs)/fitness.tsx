@@ -30,7 +30,7 @@ interface LifeHealthData {
   maintainabilityScore: number;
   maintainabilityVerdict: 'sustainable' | 'moderate_risk' | 'high_risk';
   maintainabilityWarnings: string[];
-  topGaps: Array<{ area: string; requirement: string; gapMagnitude: number }>;
+  topGaps: { area: string; requirement: string; gapMagnitude: number }[];
 }
 
 export default function FitnessScreen() {

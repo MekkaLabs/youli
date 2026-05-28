@@ -30,7 +30,7 @@ interface AgentResponse {
     urgency: 'low' | 'medium' | 'high';
   };
   synthesis: string;
-  suggestedAgents: Array<{ name: string; emoji: string; area: string; reason: string }>;
+  suggestedAgents: { name: string; emoji: string; area: string; reason: string }[];
   nextSteps: string[];
   graph?: {
     threadId: string;

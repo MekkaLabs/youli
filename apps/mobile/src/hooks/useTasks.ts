@@ -5,6 +5,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, AppStateStatus } from 'react-native';
 
+import { ApiTaskSchema, type ApiTask } from '../types/api-schemas';
+
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3002';
 const TASKS_KEY = '@youli:tasks';
 const SYNC_INTERVAL_MS = 20000;
@@ -46,8 +48,6 @@ function normalizePriority(input: unknown): TaskPriority {
 function toApiPriority(priority: TaskPriority): number {
   return { low: 2, medium: 3, high: 4, critical: 5 }[priority];
 }
-
-import { ApiTaskSchema, type ApiTask } from '../types/api-schemas';
 
 function fromApiTask(raw: unknown): LocalTask {
   const parsed = ApiTaskSchema.safeParse(raw);

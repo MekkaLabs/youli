@@ -30,13 +30,13 @@ interface LifeHealthData {
   maintainabilityScore: number;
   maintainabilityVerdict: 'sustainable' | 'moderate_risk' | 'high_risk';
   maintainabilityWarnings: string[];
-  topGaps: Array<{
+  topGaps: {
     area: string;
     metric: string;
     gapMagnitude: number;
     priority: string;
     requirement: string;
-  }>;
+  }[];
   criticalAreas: string[];
   topPriorities: string[];
   lastPipelineWeek?: string;

@@ -1,11 +1,11 @@
 'use strict';
 // Mock react-native-reanimated — zero dependências externas, compatível com RN Web
-var noop = function() {};
-var identity = function(x) { return x; };
+let noop = function() {};
+let identity = function(x) { return x; };
 
-var makeAnim = function() {
-  var a = { build: function() { return function() { return {}; }; } };
-  var chain = function() { return a; };
+let makeAnim = function() {
+  let a = { build: function() { return function() { return {}; }; } };
+  let chain = function() { return a; };
   a.duration = chain; a.delay = chain; a.springify = chain;
   a.damping = chain; a.stiffness = chain; a.mass = chain;
   a.easing = chain; a.withInitialValues = chain;
@@ -17,7 +17,7 @@ function AnimView(p) { return p.children || null; }
 function AnimText(p) { return p.children || null; }
 function AnimImage(p) { return null; }
 function AnimScroll(p) { return p.children || null; }
-var createAnimatedComponent = function(C) { return C; };
+let createAnimatedComponent = function(C) { return C; };
 
 module.exports = {
   __esModule: true,

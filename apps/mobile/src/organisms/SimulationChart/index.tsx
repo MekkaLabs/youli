@@ -26,13 +26,13 @@ interface TrajectoryPoint {
 
 interface SimulationResult {
   trajectory: TrajectoryPoint[];
-  scenarios: Array<{
+  scenarios: {
     id: string;
     label: string;
     color: string;
     points: number[]; // overallScore por ponto
     description: string;
-  }>;
+  }[];
   summary: string;
   risks: string[];
   opportunities: string[];
@@ -44,7 +44,7 @@ interface AreaPrediction {
   agentName: string;
   currentState: string;
   projectedState: string;
-  keyMetrics: Array<{ name: string; current: string; projected: string; trend: 'up' | 'down' | 'stable' }>;
+  keyMetrics: { name: string; current: string; projected: string; trend: 'up' | 'down' | 'stable' }[];
   risks: string[];
   opportunities: string[];
   confidence: number;

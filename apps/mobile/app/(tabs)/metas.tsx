@@ -25,7 +25,7 @@ interface PipelineData {
   topGaps: string[];
   weeklyPlan: string[];
   summary: string;
-  phases: Array<{ phase: string; status: 'ok' | 'error' | 'skipped'; durationMs: number }>;
+  phases: { phase: string; status: 'ok' | 'error' | 'skipped'; durationMs: number }[];
 }
 
 export default function MetasScreen() {

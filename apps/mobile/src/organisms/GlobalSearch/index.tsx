@@ -142,7 +142,7 @@ export function GlobalSearch({ visible, onClose }: GlobalSearchProps) {
               <View style={styles.emptyState}>
                 <Text style={styles.emptyIcon}>😶</Text>
                 <Text style={styles.emptyTitle}>Nenhum resultado</Text>
-                <Text style={styles.emptySub}>Nada encontrado para "{query}"</Text>
+                <Text style={styles.emptySub}>Nada encontrado para &ldquo;{query}&rdquo;</Text>
               </View>
             ) : (
               <>

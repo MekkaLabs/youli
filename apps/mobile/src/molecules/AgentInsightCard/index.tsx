@@ -29,7 +29,7 @@ export interface AgentInsightCardProps {
   actions: string[];
   urgency?: 'low' | 'medium' | 'high';
   synthesis?: string;       // Síntese do orquestrador
-  suggestedAgents?: Array<{ name: string; emoji: string; area: string; reason: string }>;
+  suggestedAgents?: { name: string; emoji: string; area: string; reason: string }[];
   onActionPress?: (action: string) => void;
   onSuggestedAgentPress?: (area: string) => void;
   style?: object;

@@ -1,7 +1,7 @@
 'use strict';
 // Mock react-native-worklets para web — worklets rodam no JS thread no web
-var noop = function() {};
-var identity = function(x) { return x; };
+let noop = function() {};
+let identity = function(x) { return x; };
 
 module.exports = {
   __esModule: true,

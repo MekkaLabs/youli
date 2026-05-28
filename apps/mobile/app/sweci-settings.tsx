@@ -43,12 +43,12 @@ interface FeatureGroup {
   title: string;
   emoji: string;
   description: string;
-  features: Array<{
+  features: {
     key: keyof RuntimeConfig;
     label: string;
     description: string;
     impact: 'high' | 'medium' | 'low';
-  }>;
+  }[];
 }
 
 const FEATURE_GROUPS: FeatureGroup[] = [

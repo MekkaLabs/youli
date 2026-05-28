@@ -7,6 +7,8 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMilestone } from '../molecules/StreakMilestone';
 import { AppState, AppStateStatus } from 'react-native';
+
+import { ApiHabitSchema, type ApiHabit } from '../types/api-schemas';
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3002';
 const SYNC_INTERVAL_MS = 20000;
 
@@ -150,8 +152,6 @@ function generateDemoCompletions(streakDays: number): string[] {
   }
   return dates;
 }
-
-import { ApiHabitSchema, type ApiHabit } from '../types/api-schemas';
 
 function fromApiHabit(raw: unknown): HabitData {
   const parsed = ApiHabitSchema.safeParse(raw);

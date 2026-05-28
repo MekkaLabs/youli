@@ -6,6 +6,10 @@ import { useState, useEffect, useCallback, createContext, useContext } from 'rea
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setAuthToken, clearAuthToken } from '../services/auth-token';
 
+// ── Context (para compartilhar entre telas sem prop-drilling) ─────────────────
+
+import React from 'react';
+
 const SESSION_KEY = '@youli:session';
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3002';
 
@@ -174,10 +178,6 @@ export function useAuth(): AuthHook {
     isAdmin: user?.role === 'admin',
   };
 }
-
-// ── Context (para compartilhar entre telas sem prop-drilling) ─────────────────
-
-import React from 'react';
 
 const AuthContext = createContext<AuthHook | null>(null);
 

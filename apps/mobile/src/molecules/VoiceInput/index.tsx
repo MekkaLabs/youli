@@ -308,7 +308,7 @@ export function VoiceInput({
               {transcript !== '' && voiceState !== 'listening' && (
                 <Animated.View entering={FadeIn} style={styles.transcriptBox}>
                   <Text style={styles.transcriptLabel}>Você disse:</Text>
-                  <Text style={styles.transcriptText}>"{transcript}"</Text>
+                  <Text style={styles.transcriptText}>&ldquo;{transcript}&rdquo;</Text>
                 </Animated.View>
               )}
 
@@ -382,6 +382,8 @@ async function transcribeWithNative(): Promise<string> {
   // Aqui retornamos string vazia — integração real com Whisper será via /api/voice/transcribe
   // O fluxo completo com Handy (desktop) não precisa desta função.
   try {
+    // Dynamic optional import — pacote não está em package.json de propósito.
+    // eslint-disable-next-line import/no-unresolved
     const Voice = await import('@react-native-voice/voice').catch(() => null);
     if (!Voice) return '';
 

@@ -24,6 +24,11 @@ jobs:
       - name: Typecheck (workspaces)
         run: npm run typecheck --workspaces --if-present
 
+      - name: Lint (workspaces)
+        # Hoje passa com 0 errors / 99 warnings — gate é exit code.
+        # Quando warnings = 0, adicionar `-- --max-warnings 0` para travar regressão.
+        run: npm run lint --workspaces --if-present
+
       - name: Build API (produção)
         run: npm run build -w @youli/api
         env:

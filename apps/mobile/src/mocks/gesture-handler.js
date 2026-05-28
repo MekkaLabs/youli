@@ -1,6 +1,6 @@
 'use strict';
 // Mock react-native-gesture-handler — zero dependências, componentes como funções
-var noop = function() {};
+let noop = function() {};
 
 // Wrapper que só renderiza children (funciona sem import React no React 17+)
 function passthrough(props) { return props.children || null; }
@@ -12,14 +12,14 @@ module.exports = {
   GestureDetector: function(props) { return props.children || null; },
   Gesture: {
     Tap: function() {
-      var g = {};
-      var chain = function() { return g; };
+      let g = {};
+      let chain = function() { return g; };
       g.onEnd = chain; g.onBegin = chain; g.numberOfTaps = chain; g.maxDuration = chain; g.onStart = chain;
       return g;
     },
     Pan: function() {
-      var g = {};
-      var chain = function() { return g; };
+      let g = {};
+      let chain = function() { return g; };
       g.onUpdate = chain; g.onEnd = chain; g.onBegin = chain; g.minDistance = chain; g.activeOffsetX = chain;
       return g;
     },

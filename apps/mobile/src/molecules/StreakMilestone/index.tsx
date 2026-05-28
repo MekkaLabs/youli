@@ -115,7 +115,7 @@ export function StreakMilestone({
 
         {/* Título */}
         <Text style={styles.title}>{milestone.title}</Text>
-        <Text style={styles.habitName}>"{habitTitle}"</Text>
+        <Text style={styles.habitName}>&ldquo;{habitTitle}&rdquo;</Text>
 
         {/* Mensagem do Aristóteles */}
         <View style={styles.quoteBox}>

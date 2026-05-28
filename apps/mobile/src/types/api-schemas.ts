@@ -175,7 +175,7 @@ export function safeParseWithFallback<S extends z.ZodTypeAny>(
   const result = schema.safeParse(data);
   if (result.success) return result.data;
   if (__DEV__) {
-    // eslint-disable-next-line no-console
+     
     console.warn(`[${scope}] schema mismatch`, result.error.flatten());
   }
   return fallback;

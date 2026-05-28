@@ -33,7 +33,7 @@ export interface OrchestratorResponse {
   orchestratorEmoji: string;
   primaryAgent: AgentResponse;
   synthesis: string;
-  suggestedAgents: Array<{ name: string; emoji: string; area: string; reason: string }>;
+  suggestedAgents: { name: string; emoji: string; area: string; reason: string }[];
   mood: string;
   nextSteps: string[];
 }

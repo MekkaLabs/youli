@@ -21,7 +21,7 @@ interface LifeHealthData {
   maintainabilityScore: number;
   maintainabilityVerdict: 'sustainable' | 'moderate_risk' | 'high_risk';
   maintainabilityWarnings: string[];
-  topGaps: Array<{ area: string; gapMagnitude: number; requirement: string }>;
+  topGaps: { area: string; gapMagnitude: number; requirement: string }[];
 }
 
 export default function HabitosScreen() {

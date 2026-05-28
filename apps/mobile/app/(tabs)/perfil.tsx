@@ -161,7 +161,7 @@ export default function PerfilScreen() {
     fetch(`${API_BASE}/api/settings/personas`)
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
-        const personas = (json as { personas?: Array<{ personaId: PersonaId; enabled?: boolean; humanDesignEnabled?: boolean }> } | null)?.personas;
+        const personas = (json as { personas?: { personaId: PersonaId; enabled?: boolean; humanDesignEnabled?: boolean }[] } | null)?.personas;
         if (!personas) return;
         personas.forEach((persona) => {
           setPersona({

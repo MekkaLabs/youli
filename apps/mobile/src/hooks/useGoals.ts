@@ -6,6 +6,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, AppStateStatus } from 'react-native';
+
+import { ApiGoalSchema, type ApiGoal } from '../types/api-schemas';
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3002';
 const SYNC_INTERVAL_MS = 20000;
 
@@ -163,8 +165,6 @@ const DEFAULT_GOALS: GoalData[] = [
     weeklyUpdates: generateHistory(8, 24, 8),
   },
 ];
-
-import { ApiGoalSchema, type ApiGoal } from '../types/api-schemas';
 
 function fromApiGoal(raw: unknown): GoalData {
   const parsed = ApiGoalSchema.safeParse(raw);

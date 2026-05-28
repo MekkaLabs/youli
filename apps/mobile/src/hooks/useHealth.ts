@@ -42,7 +42,7 @@ export interface WorkoutSession {
 export interface HealthSummary {
   today: DailyHealthData;
   weekAvg: Partial<DailyHealthData>;
-  weekTrend: Array<{ date: string; steps: number; calories: number; sleep: number }>;
+  weekTrend: { date: string; steps: number; calories: number; sleep: number }[];
   workouts: WorkoutSession[];
   source: 'healthkit' | 'api' | 'mock';
 }
@@ -57,7 +57,7 @@ export const HEALTH_GOALS = {
   waterMl: 2500,
 };
 
-function mockWeekData(): Array<{ date: string; steps: number; calories: number; sleep: number }> {
+function mockWeekData(): { date: string; steps: number; calories: number; sleep: number }[] {
   const today = new Date();
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today);
@@ -88,6 +88,8 @@ export function useHealth() {
     try {
       // expo-health (disponível via expo-modules-core com plugin customizado)
       // Na maioria dos projetos Expo bare: usar react-native-health ou expo-health
+      // Dynamic optional import — não está em package.json de propósito (degrada para denied).
+      // eslint-disable-next-line import/no-unresolved
       const { default: Health } = await import('expo-health');
       const permissions = [
         Health.HealthDataType.Steps,
@@ -111,6 +113,8 @@ export function useHealth() {
 
   const loadFromHealthKit = useCallback(async (): Promise<HealthSummary | null> => {
     try {
+      // Dynamic optional import (mesma razão do requestPermission).
+      // eslint-disable-next-line import/no-unresolved
       const { default: Health } = await import('expo-health');
       const today = new Date();
       const startOfDay = new Date(today.toISOString().split('T')[0] + 'T00:00:00');

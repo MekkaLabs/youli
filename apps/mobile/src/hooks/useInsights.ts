@@ -130,7 +130,7 @@ export function useInsights() {
       // Build context for API
       const habitsArr: HabitItem[] = habits.habits ?? [];
       const goalsArr: GoalItem[] = goals.goals ?? [];
-      const habitWithCompletedToday = habitsArr as Array<HabitItem & { completedToday?: boolean }>;
+      const habitWithCompletedToday = habitsArr as (HabitItem & { completedToday?: boolean })[];
       const financeAny = finance as { totalBalance?: number; monthlyExpenses?: number };
       const context = {
         habits: {

@@ -128,11 +128,13 @@ export function useCalendar() {
 
   const loadNativeCalendar = useCallback(async (): Promise<CalendarEvent[]> => {
     try {
+      // Dynamic optional import — não está em package.json de propósito (degrada para fallback).
+      // eslint-disable-next-line import/no-unresolved
       const Calendar = await import('expo-calendar');
       const { status } = await Calendar.requestCalendarPermissionsAsync();
       if (status !== 'granted') return [];
 
-      const calendars = (await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT)) as Array<{ id: string }>;
+      const calendars = (await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT)) as { id: string }[];
       const ids = calendars.map((c) => c.id);
 
       const start = new Date(today + 'T00:00:00');
@@ -178,12 +180,12 @@ export function useCalendar() {
 
       if (res?.ok) {
         const data = (await res.json()) as {
-          events?: Array<Partial<CalendarEvent> & {
+          events?: (Partial<CalendarEvent> & {
             startIso?: string;
             endIso?: string;
             start?: string;
             end?: string;
-          }>;
+          })[];
         };
         if (data?.events?.length) {
           const mapped: CalendarEvent[] = data.events.map((e) => ({

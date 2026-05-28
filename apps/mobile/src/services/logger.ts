@@ -18,11 +18,11 @@ function format(err: unknown): string {
 
 export function logWarn(scope: string, err?: unknown): void {
   if (typeof __DEV__ !== 'undefined' && !__DEV__) return;
-  // eslint-disable-next-line no-console
+   
   console.warn(`[${scope}]`, err === undefined ? '' : format(err));
 }
 
 export function logError(scope: string, err?: unknown): void {
-  // eslint-disable-next-line no-console
+   
   console.error(`[${scope}]`, err === undefined ? '' : format(err));
 }

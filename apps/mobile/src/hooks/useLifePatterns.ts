@@ -20,7 +20,7 @@ export interface LifePattern {
   title: string;
   description: string;
   severity: PatternSeverity;
-  areas: Array<'habitos' | 'metas' | 'financeiro' | 'produtividade'>;
+  areas: ('habitos' | 'metas' | 'financeiro' | 'produtividade')[];
   agent: string;
   agentEmoji: string;
   color: string;

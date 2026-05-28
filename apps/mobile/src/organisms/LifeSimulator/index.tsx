@@ -29,7 +29,7 @@ interface SimResult {
   horizonLabel: string;
 }
 
-const HORIZONS: Array<{ value: Horizon; label: string }> = [
+const HORIZONS: { value: Horizon; label: string }[] = [
   { value: 30, label: '30 dias' },
   { value: 60, label: '2 meses' },
   { value: 90, label: '3 meses' },
