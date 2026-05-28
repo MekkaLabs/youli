@@ -1,21 +1,27 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
 import { interpretBySection, type SystemSection } from '@/services/system-assistant';
 import { addMemory, createGoal, createHabit, createInsight, createTask } from '@/repositories/store';
 import { createCalendarEvent, createFitnessActivity } from '@/repositories/life-stream';
-import { jsonError, requireAuth } from '@/lib/http';
+import { jsonError, parseJsonBody, requireAuth } from '@/lib/http';
+
+const InterpretSchema = z.object({
+  section: z.enum([
+    'overview', 'tarefas', 'metas', 'habitos', 'calendario',
+    'insights', 'fitness', 'financeiro', 'perfil', 'memoria', 'orquestracao',
+  ]).default('overview'),
+  message: z.string().trim().min(1, 'mensagem vazia').max(4000),
+});
 
 export async function POST(req: Request) {
   const auth = await requireAuth();
   if (auth.error) return auth.response;
+  const parsed = await parseJsonBody(req, InterpretSchema);
+  if (!parsed.ok) return parsed.response;
+  const { section, message } = parsed.data;
   try {
-    const body = (await req.json().catch(() => ({}))) as { section?: SystemSection; message?: string };
-    const section = body.section || 'overview';
-    const message = (body.message || '').trim();
-
-    if (!message) return NextResponse.json({ error: 'Mensagem vazia.' }, { status: 400 });
-
-    const interpreted = interpretBySection(section, message);
+    const interpreted = interpretBySection(section as SystemSection, message);
     let created: unknown = null;
 
     if (interpreted.action.type === 'create_task') {

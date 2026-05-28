@@ -9,8 +9,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { parseVoiceIntent, VoiceIntent } from '@/services/voice/voice-intent-parser';
-import { requireAuth } from '@/lib/http';
+import { parseJsonBody, requireAuth } from '@/lib/http';
+import { enforceRateLimit } from '@/lib/rate-limit';
+
+const VoiceCommandSchema = z.object({
+  text: z.string().trim().min(2, 'text precisa de pelo menos 2 caracteres').max(4000),
+  context: z.record(z.string(), z.unknown()).default({}),
+});
 
 // Tipos de ação executável
 type ActionResult = {
@@ -234,17 +241,15 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuth();
   if (auth.error) return auth.response;
 
+  // Rate limit: voz pode encadear chamadas internas (orchestrate, summaries).
+  const limited = enforceRateLimit(req, 'voice-command', 20, 60_000);
+  if (limited) return limited;
+
+  const parsed = await parseJsonBody(req, VoiceCommandSchema);
+  if (!parsed.ok) return parsed.response;
+  const { text, context } = parsed.data;
+
   try {
-    const body = await req.json();
-    const { text, context = {} } = body as {
-      text: string;
-      context?: Record<string, unknown>;
-    };
-
-    if (!text || text.trim().length < 2) {
-      return NextResponse.json({ error: 'text é obrigatório' }, { status: 400 });
-    }
-
     const profileId = auth.user.id;
 
     // Parse da intenção

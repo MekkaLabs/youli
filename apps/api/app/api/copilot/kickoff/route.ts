@@ -1,21 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createKickoffJob } from '@/services/agents/async-kickoff';
 import type { UserContext } from '@/services/agents/agent-executor';
-import { requireAuth } from '@/lib/http';
+import { parseJsonBody, requireAuth } from '@/lib/http';
 import { readDb } from '@/repositories/local-db';
+
+const KickoffSchema = z.object({
+  message: z.string().trim().min(1, 'message obrigatoria').max(8000),
+  context: z.record(z.string(), z.unknown()).default({}),
+  threadId: z.string().max(128).optional(),
+});
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth();
   if (auth.error) return auth.response;
 
-  const body = await req.json().catch(() => ({}));
-  const message = typeof body?.message === 'string' ? body.message.trim() : '';
-  const rawContext = (body?.context || {}) as UserContext;
-  const threadId = typeof body?.threadId === 'string' ? body.threadId : undefined;
-
-  if (!message) {
-    return NextResponse.json({ error: 'message obrigatoria' }, { status: 400 });
-  }
+  const parsed = await parseJsonBody(req, KickoffSchema);
+  if (!parsed.ok) return parsed.response;
+  const { message, context: rawContextRaw, threadId } = parsed.data;
+  const rawContext = rawContextRaw as unknown as UserContext;
 
   // Identidade do servidor sobrescreve o que vier do cliente.
   const profile = readDb(auth.user.id).profile;

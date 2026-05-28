@@ -10,12 +10,24 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { runOrchestrator, morningBriefing } from '@/services/agents/orchestrator';
 import { UserContext } from '@/services/agents/agent-executor';
 import { runOrchestratorGraph } from '@/services/agents/langgraph-orchestrator';
 import { planWorkflow, executeWorkflow } from '@/services/agents/workflow-planner';
-import { requireAuth } from '@/lib/http';
+import { parseJsonBody, requireAuth } from '@/lib/http';
+import { enforceRateLimit } from '@/lib/rate-limit';
 import { readDb } from '@/repositories/local-db';
+
+const OrchestrateSchema = z.object({
+  message: z.string().max(8000).default(''),
+  context: z.record(z.string(), z.unknown()).default({}),
+  orchestratorConfig: z.record(z.string(), z.unknown()).optional(),
+  mode: z.enum(['chat', 'morning']).default('chat'),
+  threadId: z.string().max(128).optional(),
+  allowResume: z.boolean().default(false),
+  useWorkflowPlanner: z.boolean().default(false),
+});
 
 /**
  * Injeta a identidade e o perfil DO SERVIDOR (autoritativos) no contexto do
@@ -54,22 +66,27 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuth();
   if (auth.error) return auth.response;
 
+  // Rate limit: rota cara (chama Claude). 30/min/IP — sob carga normal sobra,
+  // sob abuso barra. Eventos SSE não engatilham o limit (1 request = 1 hit).
+  const limited = enforceRateLimit(req, 'orchestrate', 30, 60_000);
+  if (limited) return limited;
+
   const acceptHeader = req.headers.get('accept') || '';
 
-  // Clone para poder ler o body duas vezes (SSE branch clona antes de parsear)
-  const body = await req.json();
+  const parsed = await parseJsonBody(req, OrchestrateSchema);
+  if (!parsed.ok) return parsed.response;
   const {
-    message = '',
-    context: rawContext = {} as UserContext,
+    message,
+    context: rawContext,
     orchestratorConfig,
-    mode = 'chat',
+    mode,
     threadId,
-    allowResume = false,
-    useWorkflowPlanner = false,
-  } = body;
+    allowResume,
+    useWorkflowPlanner,
+  } = parsed.data;
 
   // Contexto enriquecido com o perfil autoritativo do usuário logado.
-  const context = enrichContext(auth.user.id, rawContext as UserContext);
+  const context = enrichContext(auth.user.id, rawContext as unknown as UserContext);
 
   // ── SSE branch ──────────────────────────────────────────────────────────────
   if (acceptHeader.includes('text/event-stream')) {
