@@ -10,10 +10,9 @@ import {
 import { useI18n, SUPPORTED_LANGUAGES, LANGUAGE_LABELS } from '../../src/hooks/useI18n';
 import { useTheme } from '../../src/providers/ThemeProvider';
 import { router } from 'expo-router';
-import Animated, { FadeInDown, SlideInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FullScrollLayout } from '../../src/templates/FullScrollLayout';
-import { ProgressRing } from '../../src/atoms/ProgressRing';
 import { AgentBadge } from '../../src/atoms/AgentBadge';
 import { useAgentAction } from '../../src/hooks/useAgentAction';
 import { OrchestratorSetup } from '../../src/organisms/OrchestratorSetup';
@@ -44,9 +43,9 @@ export default function PerfilScreen() {
   const { profile, setProfile, setHumanDesign, setPersona } = useProfile();
   const { settings, setNotifPref } = useSettings();
   const { xpData, achievements } = useXP();
-  const { shouldShow: showReview, openManually, saveReview, dismiss } = useWeeklyReview();
+  const { shouldShow: showReview, openManually, saveReview: _saveReview, dismiss } = useWeeklyReview();
   const { language, setLanguage } = useI18n();
-  const { isDark, toggleTheme, mode } = useTheme();
+  const { isDark, toggleTheme, mode: _mode } = useTheme();
 
   const [showOrch, setShowOrch] = useState(false);
   const [showSettings, setShowSettings] = useState(false);

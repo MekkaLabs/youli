@@ -44,7 +44,7 @@ export function WeeklyReview({ visible, onClose }: WeeklyReviewProps) {
   // Stats da semana para contexto
   const habitsArr = habits.habits ?? [];
   const goalsArr = goals.goals ?? [];
-  const completedHabits = habitsArr.filter((h) => habits.isCompletedToday(h)).length;
+  const _completedHabits = habitsArr.filter((h) => habits.isCompletedToday(h)).length;
   const activeGoals = goalsArr.filter((g) => g.status === 'active').length;
 
   async function handleFinish() {

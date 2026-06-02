@@ -12,18 +12,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Vibration, Platform, AppState, AppStateStatus, TextInput, Keyboard, PanResponder,
+  Vibration, Platform, AppState, AppStateStatus, TextInput, Keyboard,
 } from 'react-native';
 import Animated, {
-  useSharedValue, useAnimatedStyle, withTiming, withSpring,
-  interpolate, Easing,
+  useSharedValue, useAnimatedStyle, withTiming, Easing,
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useI18n } from '../../src/hooks/useI18n';
 import { useAccessibility } from '../../src/accessibility/AccessibilityProvider';
 import { accessibleColors } from '../../src/theme/accessibleTheme';
-import { colors, fontSize } from '../../src/theme/tokens';
+import { fontSize } from '../../src/theme/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -53,7 +51,6 @@ const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3002';
 
 export default function FocoScreen() {
   const insets = useSafeAreaInsets();
-  const { t } = useI18n();
   const { reduceMotion, fontMultiplier, highContrast } = useAccessibility();
 
   const [mode, setMode] = useState<TimerMode>('pomodoro');
@@ -91,7 +88,6 @@ export default function FocoScreen() {
   useEffect(() => { sessionsRef.current = sessionsToday; }, [sessionsToday]);
 
   // Animated ring progress
-  const progress = useSharedValue(1);
   const pulseScale = useSharedValue(1);
 
   const totalSeconds = isBreak

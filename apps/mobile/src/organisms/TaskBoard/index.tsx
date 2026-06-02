@@ -157,7 +157,8 @@ function TaskCard({ task, onMove, onDelete, index }: {
 }
 
 // ── Coluna Kanban ─────────────────────────────────────────────────────────────
-function KanbanColumn({ status, tasks, onMove, onDelete }: {
+// Mantida (prefixo _) para reativação futura do modo kanban (hoje só list).
+function _KanbanColumn({ status, tasks, onMove, onDelete }: {
   status: TaskStatus;
   tasks: LocalTask[];
   onMove: (id: string, status: TaskStatus) => void;
@@ -190,7 +191,7 @@ function KanbanColumn({ status, tasks, onMove, onDelete }: {
 export function TaskBoard({ filter: periodFilter }: { filter?: 'hoje' | 'semana' | 'backlog' }) {
   const { tasks, counts, createTask, restoreTask, moveTask, deleteTask, syncing, syncError, lastSyncAt, refresh } = useTasks();
   const [showForm, setShowForm] = useState(false);
-  const [view, setView] = useState<'kanban' | 'list'>('list');
+  const [_view, _setView] = useState<'kanban' | 'list'>('list');
   const [filter, setFilter] = useState<TaskStatus | 'all'>('all');
   const [undoTask, setUndoTask] = useState<LocalTask | null>(null);
 
@@ -214,7 +215,7 @@ export function TaskBoard({ filter: periodFilter }: { filter?: 'hoje' | 'semana'
       })
     : tasks;
 
-  const byStatus: Record<TaskStatus, LocalTask[]> = {
+  const _byStatus: Record<TaskStatus, LocalTask[]> = {
     todo:  periodFiltered.filter(t => t.status === 'todo'),
     doing: periodFiltered.filter(t => t.status === 'doing'),
     done:  periodFiltered.filter(t => t.status === 'done'),

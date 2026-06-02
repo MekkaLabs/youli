@@ -5,8 +5,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import Svg, { Circle, Line, Polyline } from 'react-native-svg';
-import { useHealth, HEALTH_GOALS, WorkoutSession, DailyHealthData } from '../../hooks/useHealth';
+import Svg, { Circle, Polyline } from 'react-native-svg';
+import { useHealth, HEALTH_GOALS, WorkoutSession } from '../../hooks/useHealth';
 
 // ── Mini ring de progresso (SVG) ──────────────────────────────────────────
 interface ProgressRingMiniProps {

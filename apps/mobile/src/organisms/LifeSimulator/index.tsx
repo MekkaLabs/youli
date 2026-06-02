@@ -6,7 +6,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView,
-  StyleSheet, ActivityIndicator, TextInput,
+  StyleSheet, TextInput,
 } from 'react-native';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { tokens } from '../../theme/tokens';

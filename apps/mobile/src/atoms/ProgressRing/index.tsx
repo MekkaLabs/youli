@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { Text, View } from 'react-native';
+import { useSharedValue, withTiming } from 'react-native-reanimated';
 import { colors, fontSize, fontWeight } from '../../theme/tokens';
 
 interface ProgressRingProps {

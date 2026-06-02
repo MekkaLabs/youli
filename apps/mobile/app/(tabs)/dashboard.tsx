@@ -9,11 +9,9 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useI18n } from '../../src/hooks/useI18n';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { FullScrollLayout } from '../../src/templates/FullScrollLayout';
 import { DashboardHero } from '../../src/organisms/DashboardHero';
-import { AgentBadge } from '../../src/atoms/AgentBadge';
 import { DailyDigest } from '../../src/organisms/DailyDigest';
 import { NotificationBell, NotificationCenter } from '../../src/organisms/NotificationCenter';
 import { CrossAreaInsights } from '../../src/organisms/CrossAreaInsights';
@@ -21,7 +19,6 @@ import { useSmartNotifications } from '../../src/hooks/useSmartNotifications';
 import { DailyCheckIn, useDailyCheckIn } from '../../src/organisms/DailyCheckIn';
 import { GlobalSearch, SearchTrigger } from '../../src/organisms/GlobalSearch';
 import { ShareProgressButton } from '../../src/organisms/ShareCard';
-import { tokens } from '../../src/theme/tokens';
 import { useUI } from '../../src/store';
 import { useSWECI } from '../../src/hooks/useSWECI';
 import { TodayFocusCard } from '../../src/organisms/TodayFocusCard';
@@ -91,7 +88,7 @@ const hudStyles = StyleSheet.create({
   tapHint: { fontSize: 10, color: '#4B5563', textAlign: 'right', fontWeight: '600' },
 });
 
-const LEONARDO = {
+const _LEONARDO = {
   name: 'Leonardo',
   fullName: 'Leonardo da Vinci',
   emoji: '🎨',
@@ -110,7 +107,7 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useI18n();
   const [dashData, setDashData] = useState<any>(null);
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [_transactions, setTransactions] = useState<any[]>([]);
   const [greeting] = useState(() => getTimeGreeting());
   const [showNotifications, setShowNotifications] = useState(false);
   const { unreadCount } = useSmartNotifications();

@@ -5,10 +5,10 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  TextInput, ActivityIndicator, ScrollView,
+  TextInput, ActivityIndicator,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import Svg, { Polyline, Line, Text as SvgText, Circle, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import Svg, { Polyline, Line, Text as SvgText, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { useHabits } from '../../hooks/useHabits';
 import { useGoals } from '../../hooks/useGoals';
 import { useFinance } from '../../hooks/useFinance';

@@ -28,7 +28,7 @@ type TxFilter = 'all' | 'income' | 'expense';
 
 export function FinanceGrid() {
   const {
-    transactions,
+    transactions: _transactions,
     thisMonth,
     monthlySummary,
     categoryBreakdown,

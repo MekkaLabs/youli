@@ -4,21 +4,17 @@
  * Passo 2: Áreas de vida prioritárias
  * Passo 3: Primeira meta + hábito
  */
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ScrollView, KeyboardAvoidingView, Platform, Dimensions,
+  ScrollView, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import Animated, {
-  FadeIn, FadeInRight, FadeOutLeft, useSharedValue, withTiming, useAnimatedStyle,
-} from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInRight } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useI18n, SUPPORTED_LANGUAGES, LANGUAGE_LABELS } from '../../src/hooks/useI18n';
 import type { SupportedLanguage } from '../../src/hooks/useI18n';
-
-const { width } = Dimensions.get('window');
 
 const LIFE_AREAS = [
   { id: 'health', icon: '💪', label: 'Saúde & Fitness' },

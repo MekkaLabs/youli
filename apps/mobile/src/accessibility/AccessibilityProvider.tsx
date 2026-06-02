@@ -15,7 +15,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import { AccessibilityInfo, Platform } from 'react-native';
+import { AccessibilityInfo } from 'react-native';
 import { logWarn } from '../services/logger';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

@@ -51,7 +51,7 @@ export function AgentInsightCard({
   onSuggestedAgentPress,
   style,
 }: AgentInsightCardProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [_expanded, _setExpanded] = useState(false);
 
   const urgencyColors = {
     low: tokens.colors.success,
